@@ -1,0 +1,48 @@
+x264 configure script
+Command line options: "--enable-debug" "--disable-opencl" "--disable-asm" "--enable-gprof" "--disable-avs" "--disable-swscale" "--disable-lavf" "--disable-ffms" "--disable-gpac" "--bit-depth=8" "--chroma-format=420" "--disable-thread" "--disable-interlaced"
+
+checking whether gcc works... yes
+checking whether gcc supports for( int i = 0; i < 9; i++ ); with -std=gnu99... yes
+checking for return log2f(2); in math.h... yes
+checking for MADV_HUGEPAGE; in sys/mman.h... no
+Failed commandline was:
+--------------------------------------------------
+gcc conftest.c -m32  -Wall -I. -I$(SRCPATH) -pg -std=gnu99   -m32  -pg -lm -o conftest
+conftest.c: In function ‘main’:
+conftest.c:2: error: ‘MADV_HUGEPAGE’ undeclared (first use in this function)
+conftest.c:2: error: (Each undeclared identifier is reported only once
+conftest.c:2: error: for each function it appears in.)
+--------------------------------------------------
+Failed program was:
+--------------------------------------------------
+#include <sys/mman.h>
+int main () { MADV_HUGEPAGE; return 0; }
+--------------------------------------------------
+checking for uint32_t test_vec __attribute__ ((vector_size (16))) = {0,1,2,3}; in stdint.h... yes
+checking for -fno-tree-vectorize... yes
+checking for fseeko(stdin,0,0); in stdio.h... yes
+checking for -Wshadow... yes
+
+platform:      X86
+system:        LINUX
+cli:           yes
+libx264:       internal
+shared:        no
+static:        no
+asm:           no
+interlaced:    no
+avs:           no
+lavf:          no
+ffms:          no
+gpac:          no
+gpl:           yes
+thread:        no
+opencl:        no
+filters:       crop select_every 
+debug:         yes
+gprof:         yes
+strip:         no
+PIC:           no
+visualize:     no
+bit depth:     8
+chroma format: 420
