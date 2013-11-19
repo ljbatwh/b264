@@ -49,7 +49,7 @@ enum
     PIXEL_4x2   = 8,
     PIXEL_2x8   = 9,  /* 4:2:2 */
     PIXEL_2x4   = 10,
-    PIXEL_2x2   = 11,
+    PIXEL_2x2   = 11
 };
 
 static const struct { uint8_t w, h; } x264_pixel_size[12] =
@@ -67,13 +67,11 @@ static const uint8_t x264_size2pixel[5][5] =
     { 0, 0,        PIXEL_8x16, 0, PIXEL_16x16 }
 };
 
-static const uint8_t x264_luma2chroma_pixel[4][7] =
+static const uint8_t x264_luma2chroma_pixel[2][7] =
 {
     { 0 },
     //PIXEL_16x16, PIXEL_16x8, PIXEL_8x16, PIXEL_8x8, PIXEL_8x4, PIXEL_4x8, PIXEL_4x4
     { PIXEL_8x8,   PIXEL_8x4,  PIXEL_4x8,  PIXEL_4x4, PIXEL_4x2, PIXEL_2x4, PIXEL_2x2 }, /* 4:2:0 */
-    { PIXEL_8x16,  PIXEL_8x8,  PIXEL_4x16, PIXEL_4x8, PIXEL_4x4, PIXEL_2x8, PIXEL_2x4 }, /* 4:2:2 */
-    { PIXEL_16x16, PIXEL_16x8, PIXEL_8x16, PIXEL_8x8, PIXEL_8x4, PIXEL_4x8, PIXEL_4x4 }, /* 4:4:4 */
 };
 
 typedef struct
@@ -136,20 +134,9 @@ typedef struct
     void (*intra_mbcmp_x3_8x8c)  ( pixel *fenc, pixel *fdec, int res[3] );
     void (*intra_satd_x3_8x8c)   ( pixel *fenc, pixel *fdec, int res[3] );
     void (*intra_sad_x3_8x8c)    ( pixel *fenc, pixel *fdec, int res[3] );
-    void (*intra_mbcmp_x3_8x8)  ( pixel *fenc, pixel edge[36], int res[3] );
-    void (*intra_sa8d_x3_8x8)   ( pixel *fenc, pixel edge[36], int res[3] );
-    void (*intra_sad_x3_8x8)    ( pixel *fenc, pixel edge[36], int res[3] );
-    /* find minimum satd or sad of all modes, and set fdec.
-     * may be NULL, in which case just use pred+satd instead. */
-    int (*intra_mbcmp_x9_4x4)( pixel *fenc, pixel *fdec, uint16_t *bitcosts );
-    int (*intra_satd_x9_4x4) ( pixel *fenc, pixel *fdec, uint16_t *bitcosts );
-    int (*intra_sad_x9_4x4)  ( pixel *fenc, pixel *fdec, uint16_t *bitcosts );
-    int (*intra_mbcmp_x9_8x8)( pixel *fenc, pixel *fdec, pixel edge[36], uint16_t *bitcosts, uint16_t *satds );
-    int (*intra_sa8d_x9_8x8) ( pixel *fenc, pixel *fdec, pixel edge[36], uint16_t *bitcosts, uint16_t *satds );
-    int (*intra_sad_x9_8x8)  ( pixel *fenc, pixel *fdec, pixel edge[36], uint16_t *bitcosts, uint16_t *satds );
 } x264_pixel_function_t;
 
-void x264_pixel_init( int cpu, x264_pixel_function_t *pixf );
+void x264_pixel_init( x264_pixel_function_t *pixf );
 void x264_pixel_ssd_nv12   ( x264_pixel_function_t *pf, pixel *pix1, intptr_t i_pix1, pixel *pix2, intptr_t i_pix2,
                              int i_width, int i_height, uint64_t *ssd_u, uint64_t *ssd_v );
 uint64_t x264_pixel_ssd_wxh( x264_pixel_function_t *pf, pixel *pix1, intptr_t i_pix1, pixel *pix2, intptr_t i_pix2,

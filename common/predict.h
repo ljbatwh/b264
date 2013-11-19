@@ -57,7 +57,7 @@ enum intra16x16_pred_e
 
     I_PRED_16x16_DC_LEFT = 4,
     I_PRED_16x16_DC_TOP  = 5,
-    I_PRED_16x16_DC_128  = 6,
+    I_PRED_16x16_DC_128  = 6
 };
 static const uint8_t x264_mb_pred_mode16x16_fix[7] =
 {
@@ -79,7 +79,7 @@ enum intra4x4_pred_e
 
     I_PRED_4x4_DC_LEFT = 9,
     I_PRED_4x4_DC_TOP  = 10,
-    I_PRED_4x4_DC_128  = 11,
+    I_PRED_4x4_DC_128  = 11
 };
 static const int8_t x264_mb_pred_mode4x4_fix[13] =
 {
@@ -92,6 +92,7 @@ static const int8_t x264_mb_pred_mode4x4_fix[13] =
 #define x264_mb_pred_mode4x4_fix(t) x264_mb_pred_mode4x4_fix[(t)+1]
 
 /* must use the same numbering as intra4x4_pred_e */
+/*
 enum intra8x8_pred_e
 {
     I_PRED_8x8_V  = 0,
@@ -106,9 +107,9 @@ enum intra8x8_pred_e
 
     I_PRED_8x8_DC_LEFT = 9,
     I_PRED_8x8_DC_TOP  = 10,
-    I_PRED_8x8_DC_128  = 11,
+    I_PRED_8x8_DC_128  = 11
 };
-
+*/
 void x264_predict_8x8_dc_c  ( pixel *src, pixel edge[36] );
 void x264_predict_8x8_h_c   ( pixel *src, pixel edge[36] );
 void x264_predict_8x8_v_c   ( pixel *src, pixel edge[36] );
@@ -128,11 +129,10 @@ void x264_predict_8x16c_h_c ( pixel *src );
 void x264_predict_8x16c_v_c ( pixel *src );
 void x264_predict_8x16c_p_c ( pixel *src );
 
-void x264_predict_16x16_init ( int cpu, x264_predict_t pf[7] );
-void x264_predict_8x8c_init  ( int cpu, x264_predict_t pf[7] );
-void x264_predict_8x16c_init ( int cpu, x264_predict_t pf[7] );
-void x264_predict_4x4_init   ( int cpu, x264_predict_t pf[12] );
-void x264_predict_8x8_init   ( int cpu, x264_predict8x8_t pf[12], x264_predict_8x8_filter_t *predict_filter );
+void x264_predict_16x16_init ( x264_predict_t pf[7] );
+void x264_predict_8x8c_init  ( x264_predict_t pf[7] );
+void x264_predict_8x16c_init ( x264_predict_t pf[7] );
+void x264_predict_4x4_init   ( x264_predict_t pf[12] );
 
 
 #endif

@@ -38,7 +38,6 @@ typedef struct
     char *resolution;
     char *colorspace;
     int bit_depth;
-    char *timebase;
     int seek;
     int progress;
     int output_csp; /* convert to this csp, if applicable */
@@ -61,9 +60,9 @@ typedef struct
     uint32_t sar_height;
     int tff;
     int thread_safe; /* demuxer is thread_input safe */
-    uint32_t timebase_num;
-    uint32_t timebase_den;
-    int vfr;
+    //uint32_t timebase_num;
+    //uint32_t timebase_den;
+    //int vfr;
 } video_info_t;
 
 /* image data type used by x264cli */

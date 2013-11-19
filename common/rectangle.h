@@ -112,26 +112,26 @@ extern void (*x264_cache_mv_func_table[10])(void *, uint32_t);\
 extern void (*x264_cache_mvd_func_table[10])(void *, uint32_t);\
 extern void (*x264_cache_ref_func_table[10])(void *, uint32_t);\
 
-#define x264_macroblock_cache_mv_ptr( a, x, y, w, h, l, mv ) x264_macroblock_cache_mv( a, x, y, w, h, l, M32( mv ) )
-static ALWAYS_INLINE void x264_macroblock_cache_mv( x264_t *h, int x, int y, int width, int height, int i_list, uint32_t mv )
+#define x264_macroblock_cache_mv_ptr( a, x, y, w, h, mv ) x264_macroblock_cache_mv( a, x, y, w, h, M32( mv ) )
+static ALWAYS_INLINE void x264_macroblock_cache_mv( x264_t *h, int x, int y, int width, int height, uint32_t mv )
 {
-    void *mv_cache = &h->mb.cache.mv[i_list][X264_SCAN8_0+x+8*y];
+    void *mv_cache = &h->mb.cache.mv[X264_SCAN8_0+x+8*y];
     if( x264_nonconstant_p( width ) || x264_nonconstant_p( height ) )
         x264_cache_mv_func_table[width + (height<<1)-3]( mv_cache, mv );
     else
         x264_macroblock_cache_rect( mv_cache, width*4, height, 4, mv );
 }
-static ALWAYS_INLINE void x264_macroblock_cache_mvd( x264_t *h, int x, int y, int width, int height, int i_list, uint16_t mvd )
+static ALWAYS_INLINE void x264_macroblock_cache_mvd( x264_t *h, int x, int y, int width, int height, /*int i_list, */uint16_t mvd )
 {
-    void *mvd_cache = &h->mb.cache.mvd[i_list][X264_SCAN8_0+x+8*y];
+    void *mvd_cache = &h->mb.cache.mvd[X264_SCAN8_0+x+8*y];
     if( x264_nonconstant_p( width ) || x264_nonconstant_p( height ) )
         x264_cache_mvd_func_table[width + (height<<1)-3]( mvd_cache, mvd );
     else
         x264_macroblock_cache_rect( mvd_cache, width*2, height, 2, mvd );
 }
-static ALWAYS_INLINE void x264_macroblock_cache_ref( x264_t *h, int x, int y, int width, int height, int i_list, uint8_t ref )
+static ALWAYS_INLINE void x264_macroblock_cache_ref( x264_t *h, int x, int y, int width, int height, uint8_t ref )
 {
-    void *ref_cache = &h->mb.cache.ref[i_list][X264_SCAN8_0+x+8*y];
+    void *ref_cache = &h->mb.cache.ref[X264_SCAN8_0+x+8*y];
     if( x264_nonconstant_p( width ) || x264_nonconstant_p( height ) )
         x264_cache_ref_func_table[width + (height<<1)-3]( ref_cache, ref );
     else

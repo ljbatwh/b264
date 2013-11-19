@@ -74,7 +74,7 @@ enum nal_unit_type_e
     NAL_SPS         = 7,
     NAL_PPS         = 8,
     NAL_AUD         = 9,
-    NAL_FILLER      = 12,
+    NAL_FILLER      = 12
     /* ref_idc == 0 for 6,9,10,11,12 */
 };
 enum nal_priority_e
@@ -82,7 +82,7 @@ enum nal_priority_e
     NAL_PRIORITY_DISPOSABLE = 0,
     NAL_PRIORITY_LOW        = 1,
     NAL_PRIORITY_HIGH       = 2,
-    NAL_PRIORITY_HIGHEST    = 3,
+    NAL_PRIORITY_HIGHEST    = 3
 };
 
 /* The data within the payload is already NAL-encapsulated; the ref_idc and type
@@ -149,20 +149,10 @@ typedef struct
 #define X264_CPU_SLOW_PSHUFB     0x2000000  /* such as on the Intel Atom */
 #define X264_CPU_SLOW_PALIGNR    0x4000000  /* such as on the AMD Bobcat */
 
-/* PowerPC */
-#define X264_CPU_ALTIVEC         0x0000001
-
-/* ARM */
-#define X264_CPU_ARMV6           0x0000001
-#define X264_CPU_NEON            0x0000002  /* ARM NEON */
-#define X264_CPU_FAST_NEON_MRC   0x0000004  /* Transfer from NEON to ARM register is fast (Cortex-A9) */
-
 /* Analyse flags */
 #define X264_ANALYSE_I4x4       0x0001  /* Analyse i4x4 */
-#define X264_ANALYSE_I8x8       0x0002  /* Analyse i8x8 (requires 8x8 transform) */
 #define X264_ANALYSE_PSUB16x16  0x0010  /* Analyse p16x8, p8x16 and p8x8 */
 #define X264_ANALYSE_PSUB8x8    0x0020  /* Analyse p8x4, p4x8, p4x4 */
-#define X264_ANALYSE_BSUB16x16  0x0100  /* Analyse b16x8, b8x16 and b8x8 */
 #define X264_DIRECT_PRED_NONE        0
 #define X264_DIRECT_PRED_SPATIAL     1
 #define X264_DIRECT_PRED_TEMPORAL    2
@@ -173,8 +163,6 @@ typedef struct
 #define X264_ME_ESA                  3
 #define X264_ME_TESA                 4
 #define X264_CQM_FLAT                0
-#define X264_CQM_JVT                 1
-#define X264_CQM_CUSTOM              2
 #define X264_RC_CQP                  0
 #define X264_RC_CRF                  1
 #define X264_RC_ABR                  2
@@ -182,15 +170,7 @@ typedef struct
 #define X264_AQ_NONE                 0
 #define X264_AQ_VARIANCE             1
 #define X264_AQ_AUTOVARIANCE         2
-#define X264_B_ADAPT_NONE            0
-#define X264_B_ADAPT_FAST            1
-#define X264_B_ADAPT_TRELLIS         2
 #define X264_WEIGHTP_NONE            0
-#define X264_WEIGHTP_SIMPLE          1
-#define X264_WEIGHTP_SMART           2
-#define X264_B_PYRAMID_NONE          0
-#define X264_B_PYRAMID_STRICT        1
-#define X264_B_PYRAMID_NORMAL        2
 #define X264_KEYINT_MIN_AUTO         0
 #define X264_KEYINT_MAX_INFINITE     (1<<30)
 
@@ -212,16 +192,7 @@ static const char * const x264_nal_hrd_names[] = { "none", "vbr", "cbr", 0 };
 #define X264_CSP_I420           0x0001  /* yuv 4:2:0 planar */
 #define X264_CSP_YV12           0x0002  /* yvu 4:2:0 planar */
 #define X264_CSP_NV12           0x0003  /* yuv 4:2:0, with one y plane and one packed u+v */
-#define X264_CSP_I422           0x0004  /* yuv 4:2:2 planar */
-#define X264_CSP_YV16           0x0005  /* yvu 4:2:2 planar */
-#define X264_CSP_NV16           0x0006  /* yuv 4:2:2, with one y plane and one packed u+v */
-#define X264_CSP_I444           0x0007  /* yuv 4:4:4 planar */
-#define X264_CSP_YV24           0x0008  /* yvu 4:4:4 planar */
-#define X264_CSP_BGR            0x0009  /* packed bgr 24bits   */
-#define X264_CSP_BGRA           0x000a  /* packed bgr 32bits   */
-#define X264_CSP_RGB            0x000b  /* packed rgb 24bits   */
-#define X264_CSP_MAX            0x000c  /* end of list */
-#define X264_CSP_VFLIP          0x1000  /* the csp is vertically flipped */
+#define X264_CSP_MAX            0x0004  /* end of list */
 #define X264_CSP_HIGH_DEPTH     0x2000  /* the csp has a depth of 16 bits per pixel component */
 
 /* Slice type */
@@ -251,28 +222,10 @@ static const char * const x264_nal_hrd_names[] = { "none", "vbr", "cbr", 0 };
 #define X264_NAL_HRD_VBR             1
 #define X264_NAL_HRD_CBR             2
 
-/* Zones: override ratecontrol or other options for specific sections of the video.
- * See x264_encoder_reconfig() for which options can be changed.
- * If zones overlap, whichever comes later in the list takes precedence. */
-typedef struct
-{
-    int i_start, i_end; /* range of frame numbers */
-    int b_force_qp; /* whether to use qp vs bitrate factor */
-    int i_qp;
-    float f_bitrate_factor;
-    struct x264_param_t *param;
-} x264_zone_t;
-
 typedef struct x264_param_t
 {
     /* CPU flags */
     unsigned int cpu;
-    int         i_threads;           /* encode multiple frames in parallel */
-    int         i_lookahead_threads; /* multiple threads for lookahead analysis */
-    int         b_sliced_threads;  /* Whether to use slice-based threading. */
-    int         b_deterministic; /* whether to allow non-deterministic optimizations when threaded */
-    int         b_cpu_independent; /* force canonical behavior rather than cpu-dependent optimal algorithms */
-    int         i_sync_lookahead; /* threaded lookahead buffer */
 
     /* Video Properties */
     int         i_width;
@@ -315,34 +268,11 @@ typedef struct x264_param_t
     int         i_scenecut_threshold; /* how aggressively to insert extra I frames */
     int         b_intra_refresh;    /* Whether or not to use periodic intra refresh instead of IDR frames. */
 
-    int         i_bframe;   /* how many b-frame between 2 references pictures */
-    int         i_bframe_adaptive;
-    int         i_bframe_bias;
-    int         i_bframe_pyramid;   /* Keep some B-frames as references: 0=off, 1=strict hierarchical, 2=normal */
-    int         b_open_gop;
-    int         b_bluray_compat;
-    int         b_avcintra_compat;
-
     int         b_deblocking_filter;
     int         i_deblocking_filter_alphac0;    /* [-6, 6] -6 light filter, 6 strong */
     int         i_deblocking_filter_beta;       /* [-6, 6]  idem */
 
-    int         b_cabac;
-    int         i_cabac_init_idc;
-
-    int         b_interlaced;
     int         b_constrained_intra;
-
-    int         i_cqm_preset;
-    char        *psz_cqm_file;      /* filename (in UTF-8) of CQM file, JM format */
-    uint8_t     cqm_4iy[16];        /* used only if i_cqm_preset == X264_CQM_CUSTOM */
-    uint8_t     cqm_4py[16];
-    uint8_t     cqm_4ic[16];
-    uint8_t     cqm_4pc[16];
-    uint8_t     cqm_8iy[64];
-    uint8_t     cqm_8py[64];
-    uint8_t     cqm_8ic[64];
-    uint8_t     cqm_8pc[64];
 
     /* Log */
     void        (*pf_log)( void *, int i_level, const char *psz, va_list );
@@ -358,29 +288,20 @@ typedef struct x264_param_t
         unsigned int intra;     /* intra partitions */
         unsigned int inter;     /* inter partitions */
 
-        int          b_transform_8x8;
-        int          i_weighted_pred; /* weighting for P-frames */
-        int          b_weighted_bipred; /* implicit weighting for B-frames */
         int          i_direct_mv_pred; /* spatial vs temporal mv prediction */
         int          i_chroma_qp_offset;
 
         int          i_me_method; /* motion estimation algorithm to use (X264_ME_*) */
         int          i_me_range; /* integer pixel motion estimation search range (from predicted mv) */
         int          i_mv_range; /* maximum length of a mv (in pixels). -1 = auto, based on level */
-        int          i_mv_range_thread; /* minimum space between threads. -1 = auto, based on number of threads. */
         int          i_subpel_refine; /* subpixel motion estimation quality */
         int          b_chroma_me; /* chroma ME for subpel and mode decision in P-frames */
         int          b_mixed_references; /* allow each mb partition to have its own reference number */
-        int          i_trellis;  /* trellis RD quantization */
         int          b_fast_pskip; /* early SKIP detection on P-frames */
         int          b_dct_decimate; /* transform coefficient thresholding on P-frames */
         int          i_noise_reduction; /* adaptive pseudo-deadzone */
         float        f_psy_rd; /* Psy RD strength */
-        float        f_psy_trellis; /* Psy trellis strength */
         int          b_psy; /* Toggle all psy optimizations */
-
-        int          b_mb_info;            /* Use input mb_info data in x264_picture_t */
-        int          b_mb_info_update; /* Update the values in mb_info according to the results of encoding. */
 
         /* the deadzone size that will be used in luma quantization */
         int          i_luma_deadzone[2]; /* {inter, intra} */
@@ -412,21 +333,9 @@ typedef struct x264_param_t
         int         i_aq_mode;      /* psy adaptive QP. (X264_AQ_*) */
         float       f_aq_strength;
         int         b_mb_tree;      /* Macroblock-tree ratecontrol. */
-        int         i_lookahead;
-
-        /* 2pass */
-        int         b_stat_write;   /* Enable stat writing in psz_stat_out */
-        char        *psz_stat_out;  /* output filename (in UTF-8) of the 2pass stats file */
-        int         b_stat_read;    /* Read stat from psz_stat_in and use it */
-        char        *psz_stat_in;   /* input filename (in UTF-8) of the 2pass stats file */
 
         /* 2pass params (same as ffmpeg ones) */
         float       f_qcompress;    /* 0.0 => cbr, 1.0 => constant qp */
-        float       f_qblur;        /* temporally blur quants */
-        float       f_complexity_blur; /* temporally blur complexity */
-        x264_zone_t *zones;         /* ratecontrol overrides */
-        int         i_zones;        /* number of zone_t's */
-        char        *psz_zones;     /* alternate method of specifying zones */
     } rc;
 
     /* Cropping Rectangle parameters: added to those implicitly defined by
@@ -439,54 +348,15 @@ typedef struct x264_param_t
         unsigned int i_bottom;
     } crop_rect;
 
-    /* frame packing arrangement flag */
-    int i_frame_packing;
-
     /* Muxing parameters */
     int b_aud;                  /* generate access unit delimiters */
     int b_repeat_headers;       /* put SPS/PPS before each keyframe */
     int b_annexb;               /* if set, place start codes (4 bytes) before NAL units,
                                  * otherwise place size (4 bytes) before NAL units. */
     int i_sps_id;               /* SPS and PPS id number */
-    int b_vfr_input;            /* VFR input.  If 1, use timebase and timestamps for ratecontrol purposes.
-                                 * If 0, use fps only. */
-    int b_pulldown;             /* use explicity set timebase for CFR */
+
     uint32_t i_fps_num;
     uint32_t i_fps_den;
-    uint32_t i_timebase_num;    /* Timebase numerator */
-    uint32_t i_timebase_den;    /* Timebase denominator */
-
-    int b_tff;
-
-    /* Pulldown:
-     * The correct pic_struct must be passed with each input frame.
-     * The input timebase should be the timebase corresponding to the output framerate. This should be constant.
-     * e.g. for 3:2 pulldown timebase should be 1001/30000
-     * The PTS passed with each frame must be the PTS of the frame after pulldown is applied.
-     * Frame doubling and tripling require b_vfr_input set to zero (see H.264 Table D-1)
-     *
-     * Pulldown changes are not clearly defined in H.264. Therefore, it is the calling app's responsibility to manage this.
-     */
-
-    int b_pic_struct;
-
-    /* Fake Interlaced.
-     *
-     * Used only when b_interlaced=0. Setting this flag makes it possible to flag the stream as PAFF interlaced yet
-     * encode all frames progessively. It is useful for encoding 25p and 30p Blu-Ray streams.
-     */
-
-    int b_fake_interlaced;
-
-    /* Don't optimize header parameters based on video content, e.g. ensure that splitting an input video, compressing
-     * each part, and stitching them back together will result in identical SPS/PPS. This is necessary for stitching
-     * with container formats that don't allow multiple SPS/PPS. */
-    int b_stitchable;
-
-    int b_opencl;            /* use OpenCL when available */
-    int i_opencl_device;     /* specify count of GPU devices to skip, for CLI users */
-    void *opencl_device_id;  /* pass explicit cl_device_id as void*, for API users */
-    char *psz_clbin_file;    /* filename (in UTF-8) of the compiled OpenCL kernel cache file */
 
     /* Slicing parameters */
     int i_slice_max_size;    /* Max size per slice in bytes; includes estimated NAL overhead. */
@@ -607,7 +477,7 @@ int x264_param_parse( x264_param_t *, const char *name, const char *value );
  *      (either can be NULL, which implies no preset or no tune, respectively)
  *
  *      Currently available presets are, ordered from fastest to slowest: */
-static const char * const x264_preset_names[] = { "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo", 0 };
+static const char * const x264_preset_names[] = { "ultrafast", "superfast", 0 };
 
 /*      The presets can also be indexed numerically, as in:
  *      x264_param_default_preset( &param, "3", ... )
@@ -672,14 +542,7 @@ X264_API extern const int x264_chroma_format;
 enum pic_struct_e
 {
     PIC_STRUCT_AUTO              = 0, // automatically decide (default)
-    PIC_STRUCT_PROGRESSIVE       = 1, // progressive frame
-    // "TOP" and "BOTTOM" are not supported in x264 (PAFF only)
-    PIC_STRUCT_TOP_BOTTOM        = 4, // top field followed by bottom
-    PIC_STRUCT_BOTTOM_TOP        = 5, // bottom field followed by top
-    PIC_STRUCT_TOP_BOTTOM_TOP    = 6, // top field, bottom field, top field repeated
-    PIC_STRUCT_BOTTOM_TOP_BOTTOM = 7, // bottom field, top field, bottom field repeated
-    PIC_STRUCT_DOUBLE            = 8, // double frame
-    PIC_STRUCT_TRIPLE            = 9, // triple frame
+    PIC_STRUCT_PROGRESSIVE       = 1 // progressive frame
 };
 
 typedef struct
@@ -725,49 +588,6 @@ typedef struct
 
 typedef struct
 {
-    /* All arrays of data here are ordered as follows:
-     * each array contains one offset per macroblock, in raster scan order.  In interlaced
-     * mode, top-field MBs and bottom-field MBs are interleaved at the row level.
-     * Macroblocks are 16x16 blocks of pixels (with respect to the luma plane).  For the
-     * purposes of calculating the number of macroblocks, width and height are rounded up to
-     * the nearest 16.  If in interlaced mode, height is rounded up to the nearest 32 instead. */
-
-    /* In: an array of quantizer offsets to be applied to this image during encoding.
-     *     These are added on top of the decisions made by x264.
-     *     Offsets can be fractional; they are added before QPs are rounded to integer.
-     *     Adaptive quantization must be enabled to use this feature.  Behavior if quant
-     *     offsets differ between encoding passes is undefined. */
-    float *quant_offsets;
-    /* In: optional callback to free quant_offsets when used.
-     *     Useful if one wants to use a different quant_offset array for each frame. */
-    void (*quant_offsets_free)( void* );
-
-    /* In: optional array of flags for each macroblock.
-     *     Allows specifying additional information for the encoder such as which macroblocks
-     *     remain unchanged.  Usable flags are listed below.
-     *     x264_param_t.analyse.b_mb_info must be set to use this, since x264 needs to track
-     *     extra data internally to make full use of this information.
-     *
-     * Out: if b_mb_info_update is set, x264 will update this array as a result of encoding.
-     *
-     *      For "MBINFO_CONSTANT", it will remove this flag on any macroblock whose decoded
-     *      pixels have changed.  This can be useful for e.g. noting which areas of the
-     *      frame need to actually be blitted. Note: this intentionally ignores the effects
-     *      of deblocking for the current frame, which should be fine unless one needs exact
-     *      pixel-perfect accuracy.
-     *
-     *      Results for MBINFO_CONSTANT are currently only set for P-frames, and are not
-     *      guaranteed to enumerate all blocks which haven't changed.  (There may be false
-     *      negatives, but no false positives.)
-     */
-    uint8_t *mb_info;
-    /* In: optional callback to free mb_info when used. */
-    void (*mb_info_free)( void* );
-
-    /* The macroblock is constant and remains unchanged from the previous frame. */
-    #define X264_MBINFO_CONSTANT   (1<<0)
-    /* More flags may be added in the future. */
-
     /* Out: SSIM of the the frame luma (if x264_param_t.b_ssim is set) */
     double f_ssim;
     /* Out: Average PSNR of the frame (if x264_param_t.b_psnr is set) */
@@ -790,18 +610,9 @@ typedef struct
     int     i_type;
     /* In: force quantizer for != X264_QP_AUTO */
     int     i_qpplus1;
-    /* In: pic_struct, for pulldown/doubling/etc...used only if b_pic_struct=1.
-     *     use pic_struct_e for pic_struct inputs
-     * Out: pic_struct element associated with frame */
-    int     i_pic_struct;
     /* Out: whether this frame is a keyframe.  Important when using modes that result in
      * SEI recovery points being used instead of IDR frames. */
     int     b_keyframe;
-    /* In: user pts, Out: pts of encoded picture (user)*/
-    int64_t i_pts;
-    /* Out: frame dts. When the pts of the first frame is close to zero,
-     *      initial frames may have a negative dts which must be dealt with by any muxer */
-    int64_t i_dts;
     /* In: custom encoding parameters to be set from this frame forwards
            (in coded order, not display order). If NULL, continue using
            parameters from the previous frame.  Some parameters, such as

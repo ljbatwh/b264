@@ -167,93 +167,6 @@ int x264_vfprintf( FILE *stream, const char *format, va_list arg );
 #define x264_nonconstant_p(x) 0
 #endif
 
-/* threads */
-#if HAVE_BEOSTHREAD
-#include <kernel/OS.h>
-#define x264_pthread_t               thread_id
-static inline int x264_pthread_create( x264_pthread_t *t, void *a, void *(*f)(void *), void *d )
-{
-     *t = spawn_thread( f, "", 10, d );
-     if( *t < B_NO_ERROR )
-         return -1;
-     resume_thread( *t );
-     return 0;
-}
-#define x264_pthread_join(t,s)       { long tmp; \
-                                       wait_for_thread(t,(s)?(long*)(s):&tmp); }
-
-#elif HAVE_POSIXTHREAD
-#include <pthread.h>
-#define x264_pthread_t               pthread_t
-#define x264_pthread_create          pthread_create
-#define x264_pthread_join            pthread_join
-#define x264_pthread_mutex_t         pthread_mutex_t
-#define x264_pthread_mutex_init      pthread_mutex_init
-#define x264_pthread_mutex_destroy   pthread_mutex_destroy
-#define x264_pthread_mutex_lock      pthread_mutex_lock
-#define x264_pthread_mutex_unlock    pthread_mutex_unlock
-#define x264_pthread_cond_t          pthread_cond_t
-#define x264_pthread_cond_init       pthread_cond_init
-#define x264_pthread_cond_destroy    pthread_cond_destroy
-#define x264_pthread_cond_broadcast  pthread_cond_broadcast
-#define x264_pthread_cond_wait       pthread_cond_wait
-#define x264_pthread_attr_t          pthread_attr_t
-#define x264_pthread_attr_init       pthread_attr_init
-#define x264_pthread_attr_destroy    pthread_attr_destroy
-#define x264_pthread_num_processors_np pthread_num_processors_np
-#define X264_PTHREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
-
-#elif HAVE_WIN32THREAD
-#include "win32thread.h"
-
-#else
-#define x264_pthread_t               int
-#define x264_pthread_create(t,u,f,d) 0
-#define x264_pthread_join(t,s)
-#endif //HAVE_*THREAD
-
-#if !HAVE_POSIXTHREAD && !HAVE_WIN32THREAD
-#define x264_pthread_mutex_t         int
-#define x264_pthread_mutex_init(m,f) 0
-#define x264_pthread_mutex_destroy(m)
-#define x264_pthread_mutex_lock(m)
-#define x264_pthread_mutex_unlock(m)
-#define x264_pthread_cond_t          int
-#define x264_pthread_cond_init(c,f)  0
-#define x264_pthread_cond_destroy(c)
-#define x264_pthread_cond_broadcast(c)
-#define x264_pthread_cond_wait(c,m)
-#define x264_pthread_attr_t          int
-#define x264_pthread_attr_init(a)    0
-#define x264_pthread_attr_destroy(a)
-#define X264_PTHREAD_MUTEX_INITIALIZER 0
-#endif
-
-#if HAVE_WIN32THREAD || PTW32_STATIC_LIB
-int x264_threading_init( void );
-#else
-#define x264_threading_init() 0
-#endif
-
-static ALWAYS_INLINE int x264_pthread_fetch_and_add( int *val, int add, x264_pthread_mutex_t *mutex )
-{
-#if HAVE_THREAD
-#if defined(__GNUC__) && (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ > 0) && ARCH_X86
-    return __sync_fetch_and_add( val, add );
-#else
-    x264_pthread_mutex_lock( mutex );
-    int res = *val;
-    *val += add;
-    x264_pthread_mutex_unlock( mutex );
-    return res;
-#endif
-#else
-    int res = *val;
-    *val += add;
-    return res;
-#endif
-}
-
 #define WORD_SIZE sizeof(void*)
 
 #define asm __asm__
@@ -264,10 +177,24 @@ static ALWAYS_INLINE int x264_pthread_fetch_and_add( int *val, int add, x264_pth
 #define endian_fix32(x) (x)
 #define endian_fix16(x) (x)
 #else
+#if HAVE_X86_INLINE_ASM && HAVE_MMX
+static ALWAYS_INLINE uint32_t endian_fix32( uint32_t x )
+{
+    asm("bswap %0":"+r"(x));
+    return x;
+}
+#elif defined(__GNUC__) && HAVE_ARMV6
+static ALWAYS_INLINE uint32_t endian_fix32( uint32_t x )
+{
+    asm("rev %0, %0":"+r"(x));
+    return x;
+}
+#else
 static ALWAYS_INLINE uint32_t endian_fix32( uint32_t x )
 {
     return (x<<24) + ((x<<8)&0xff0000) + ((x>>8)&0xff00) + (x>>24);
 }
+#endif
 #if HAVE_X86_INLINE_ASM && ARCH_X86_64
 static ALWAYS_INLINE uint64_t endian_fix64( uint64_t x )
 {
@@ -326,27 +253,20 @@ static int ALWAYS_INLINE x264_ctz( uint32_t x )
 }
 #endif
 
-#define x264_prefetch(x)
-
-#if HAVE_POSIXTHREAD
-#if SYS_WINDOWS
-#define x264_lower_thread_priority(p)\
-{\
-    x264_pthread_t handle = pthread_self();\
-    struct sched_param sp;\
-    int policy = SCHED_OTHER;\
-    pthread_getschedparam( handle, &policy, &sp );\
-    sp.sched_priority -= p;\
-    pthread_setschedparam( handle, policy, &sp );\
+#if HAVE_X86_INLINE_ASM && HAVE_MMX
+/* Don't use __builtin_prefetch; even as recent as 4.3.4, GCC seems incapable of
+ * using complex address modes properly unless we use inline asm. */
+static ALWAYS_INLINE void x264_prefetch( void *p )
+{
+    asm volatile( "prefetcht0 %0"::"m"(*(uint8_t*)p) );
 }
+/* We require that prefetch not fault on invalid reads, so we only enable it on
+ * known architectures. */
+#elif defined(__GNUC__) && (__GNUC__ > 3 || __GNUC__ == 3 && __GNUC_MINOR__ > 1) &&\
+      (ARCH_X86 || ARCH_X86_64 || ARCH_ARM || ARCH_PPC)
+#define x264_prefetch(x) __builtin_prefetch(x)
 #else
-#include <unistd.h>
-#define x264_lower_thread_priority(p) { UNUSED int nice_ret = nice(p); }
-#endif /* SYS_WINDOWS */
-#elif HAVE_WIN32THREAD
-#define x264_lower_thread_priority(p) SetThreadPriority( GetCurrentThread(), X264_MAX( -2, -p ) )
-#else
-#define x264_lower_thread_priority(p)
+#define x264_prefetch(x)
 #endif
 
 static inline uint8_t x264_is_regular_file( FILE *filehandle )

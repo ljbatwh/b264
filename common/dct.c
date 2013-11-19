@@ -27,27 +27,6 @@
 
 #include "common.h"
 
-/* the inverse of the scaling factors introduced by 8x8 fdct */
-/* uint32 is for the asm implementation of trellis. the actual values fit in uint16. */
-#define W(i) (i==0 ? FIX8(1.0000) :\
-              i==1 ? FIX8(0.8859) :\
-              i==2 ? FIX8(1.6000) :\
-              i==3 ? FIX8(0.9415) :\
-              i==4 ? FIX8(1.2651) :\
-              i==5 ? FIX8(1.1910) :0)
-const uint32_t x264_dct8_weight_tab[64] = {
-    W(0), W(3), W(4), W(3),  W(0), W(3), W(4), W(3),
-    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
-    W(4), W(5), W(2), W(5),  W(4), W(5), W(2), W(5),
-    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
-
-    W(0), W(3), W(4), W(3),  W(0), W(3), W(4), W(3),
-    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
-    W(4), W(5), W(2), W(5),  W(4), W(5), W(2), W(5),
-    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1)
-};
-#undef W
-
 #define W(i) (i==0 ? FIX8(1.76777) :\
               i==1 ? FIX8(1.11803) :\
               i==2 ? FIX8(0.70711) :0)
@@ -71,24 +50,7 @@ const uint32_t x264_dct4_weight2_tab[16] = {
 };
 #undef W
 
-#define W(i) (i==0 ? FIX8(1.00000) :\
-              i==1 ? FIX8(0.78487) :\
-              i==2 ? FIX8(2.56132) :\
-              i==3 ? FIX8(0.88637) :\
-              i==4 ? FIX8(1.60040) :\
-              i==5 ? FIX8(1.41850) :0)
-const uint32_t x264_dct8_weight2_tab[64] = {
-    W(0), W(3), W(4), W(3),  W(0), W(3), W(4), W(3),
-    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
-    W(4), W(5), W(2), W(5),  W(4), W(5), W(2), W(5),
-    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
 
-    W(0), W(3), W(4), W(3),  W(0), W(3), W(4), W(3),
-    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
-    W(4), W(5), W(2), W(5),  W(4), W(5), W(2), W(5),
-    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1)
-};
-#undef W
 
 
 static void dct4x4dc( dctcoef d[16] )
@@ -189,7 +151,7 @@ static void dct2x4dc( dctcoef dct[8], dctcoef dct4x4[8][16] )
     dct4x4[7][0] = 0;
 }
 
-static inline void pixel_sub_wxh( dctcoef *diff, int i_size,
+static  void pixel_sub_wxh( dctcoef *diff, int i_size,
                                   pixel *pix1, int i_pix1, pixel *pix2, int i_pix2 )
 {
     for( int y = 0; y < i_size; y++ )
@@ -486,7 +448,7 @@ static void add16x16_idct8( pixel *dst, dctcoef dct[4][64] )
     add8x8_idct8( &dst[8*FDEC_STRIDE+8], dct[3] );
 }
 
-static void inline add4x4_idct_dc( pixel *p_dst, dctcoef dc )
+static void  add4x4_idct_dc( pixel *p_dst, dctcoef dc )
 {
     dc = (dc + 32) >> 6;
     for( int i = 0; i < 4; i++, p_dst += FDEC_STRIDE )
@@ -521,7 +483,7 @@ static void add16x16_idct_dc( pixel *p_dst, dctcoef dct[16] )
 /****************************************************************************
  * x264_dct_init:
  ****************************************************************************/
-void x264_dct_init( int cpu, x264_dct_function_t *dctf )
+void x264_dct_init( x264_dct_function_t *dctf )
 {
     dctf->sub4x4_dct    = sub4x4_dct;
     dctf->add4x4_idct   = add4x4_idct;
@@ -721,7 +683,7 @@ static void zigzag_interleave_8x8_cavlc( dctcoef *dst, dctcoef *src, uint8_t *nn
     }
 }
 
-void x264_zigzag_init( int cpu, x264_zigzag_function_t *pf_progressive, x264_zigzag_function_t *pf_interlaced )
+void x264_zigzag_init( x264_zigzag_function_t *pf_progressive, x264_zigzag_function_t *pf_interlaced )
 {
     pf_interlaced->scan_8x8   = zigzag_scan_8x8_field;
     pf_progressive->scan_8x8  = zigzag_scan_8x8_frame;

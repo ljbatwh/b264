@@ -145,18 +145,6 @@ void x264_visualize_show( x264_t *h )
         { P_L0    , "SlateBlue" },
         { P_8x8   , "blue" },
         { P_SKIP  , "green" },
-        { B_DIRECT, "yellow" },
-        { B_L0_L0 , "yellow" },
-        { B_L0_L1 , "yellow" },
-        { B_L0_BI , "yellow" },
-        { B_L1_L0 , "yellow" },
-        { B_L1_L1 , "yellow" },
-        { B_L1_BI , "yellow" },
-        { B_BI_L0 , "yellow" },
-        { B_BI_L1 , "yellow" },
-        { B_BI_BI , "yellow" },
-        { B_8x8   , "yellow" },
-        { B_SKIP  , "yellow" },
     };
 
     static const int waitkey = 1;     /* Wait for enter after each frame */

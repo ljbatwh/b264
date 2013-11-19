@@ -603,272 +603,9 @@ static void x264_predict_4x4_hu_c( pixel *src )
 }
 
 /****************************************************************************
- * 8x8 prediction for intra luma block
- ****************************************************************************/
-
-#define PL(y) \
-    edge[14-y] = F2(SRC(-1,y-1), SRC(-1,y), SRC(-1,y+1));
-#define PT(x) \
-    edge[16+x] = F2(SRC(x-1,-1), SRC(x,-1), SRC(x+1,-1));
-
-static void x264_predict_8x8_filter_c( pixel *src, pixel edge[36], int i_neighbor, int i_filters )
-{
-    /* edge[7..14] = l7..l0
-     * edge[15] = lt
-     * edge[16..31] = t0 .. t15
-     * edge[32] = t15 */
-
-    int have_lt = i_neighbor & MB_TOPLEFT;
-    if( i_filters & MB_LEFT )
-    {
-        edge[15] = (SRC(0,-1) + 2*SRC(-1,-1) + SRC(-1,0) + 2) >> 2;
-        edge[14] = ((have_lt ? SRC(-1,-1) : SRC(-1,0))
-                 + 2*SRC(-1,0) + SRC(-1,1) + 2) >> 2;
-        PL(1) PL(2) PL(3) PL(4) PL(5) PL(6)
-        edge[6] =
-        edge[7] = (SRC(-1,6) + 3*SRC(-1,7) + 2) >> 2;
-    }
-
-    if( i_filters & MB_TOP )
-    {
-        int have_tr = i_neighbor & MB_TOPRIGHT;
-        edge[16] = ((have_lt ? SRC(-1,-1) : SRC(0,-1))
-                 + 2*SRC(0,-1) + SRC(1,-1) + 2) >> 2;
-        PT(1) PT(2) PT(3) PT(4) PT(5) PT(6)
-        edge[23] = (SRC(6,-1) + 2*SRC(7,-1)
-                 + (have_tr ? SRC(8,-1) : SRC(7,-1)) + 2) >> 2;
-
-        if( i_filters & MB_TOPRIGHT )
-        {
-            if( have_tr )
-            {
-                PT(8) PT(9) PT(10) PT(11) PT(12) PT(13) PT(14)
-                edge[31] =
-                edge[32] = (SRC(14,-1) + 3*SRC(15,-1) + 2) >> 2;
-            }
-            else
-            {
-                MPIXEL_X4( edge+24 ) = PIXEL_SPLAT_X4( SRC(7,-1) );
-                MPIXEL_X4( edge+28 ) = PIXEL_SPLAT_X4( SRC(7,-1) );
-                edge[32] = SRC(7,-1);
-            }
-        }
-    }
-}
-
-#undef PL
-#undef PT
-
-#define PL(y) \
-    UNUSED int l##y = edge[14-y];
-#define PT(x) \
-    UNUSED int t##x = edge[16+x];
-#define PREDICT_8x8_LOAD_TOPLEFT \
-    int lt = edge[15];
-#define PREDICT_8x8_LOAD_LEFT \
-    PL(0) PL(1) PL(2) PL(3) PL(4) PL(5) PL(6) PL(7)
-#define PREDICT_8x8_LOAD_TOP \
-    PT(0) PT(1) PT(2) PT(3) PT(4) PT(5) PT(6) PT(7)
-#define PREDICT_8x8_LOAD_TOPRIGHT \
-    PT(8) PT(9) PT(10) PT(11) PT(12) PT(13) PT(14) PT(15)
-
-#define PREDICT_8x8_DC(v) \
-    for( int y = 0; y < 8; y++ ) { \
-        MPIXEL_X4( src+0 ) = v; \
-        MPIXEL_X4( src+4 ) = v; \
-        src += FDEC_STRIDE; \
-    }
-
-static void x264_predict_8x8_dc_128_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_DC( PIXEL_SPLAT_X4( 1 << (BIT_DEPTH-1) ) );
-}
-static void x264_predict_8x8_dc_left_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_LEFT
-    pixel4 dc = PIXEL_SPLAT_X4( (l0+l1+l2+l3+l4+l5+l6+l7+4) >> 3 );
-    PREDICT_8x8_DC( dc );
-}
-static void x264_predict_8x8_dc_top_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_TOP
-    pixel4 dc = PIXEL_SPLAT_X4( (t0+t1+t2+t3+t4+t5+t6+t7+4) >> 3 );
-    PREDICT_8x8_DC( dc );
-}
-void x264_predict_8x8_dc_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_LEFT
-    PREDICT_8x8_LOAD_TOP
-    pixel4 dc = PIXEL_SPLAT_X4( (l0+l1+l2+l3+l4+l5+l6+l7+t0+t1+t2+t3+t4+t5+t6+t7+8) >> 4 );
-    PREDICT_8x8_DC( dc );
-}
-void x264_predict_8x8_h_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_LEFT
-#define ROW(y) MPIXEL_X4( src+y*FDEC_STRIDE+0 ) =\
-               MPIXEL_X4( src+y*FDEC_STRIDE+4 ) = PIXEL_SPLAT_X4( l##y );
-    ROW(0); ROW(1); ROW(2); ROW(3); ROW(4); ROW(5); ROW(6); ROW(7);
-#undef ROW
-}
-void x264_predict_8x8_v_c( pixel *src, pixel edge[36] )
-{
-    pixel4 top[2] = { MPIXEL_X4( edge+16 ),
-                      MPIXEL_X4( edge+20 ) };
-    for( int y = 0; y < 8; y++ )
-    {
-        MPIXEL_X4( src+y*FDEC_STRIDE+0 ) = top[0];
-        MPIXEL_X4( src+y*FDEC_STRIDE+4 ) = top[1];
-    }
-}
-static void x264_predict_8x8_ddl_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_TOP
-    PREDICT_8x8_LOAD_TOPRIGHT
-    SRC(0,0)= F2(t0,t1,t2);
-    SRC(0,1)=SRC(1,0)= F2(t1,t2,t3);
-    SRC(0,2)=SRC(1,1)=SRC(2,0)= F2(t2,t3,t4);
-    SRC(0,3)=SRC(1,2)=SRC(2,1)=SRC(3,0)= F2(t3,t4,t5);
-    SRC(0,4)=SRC(1,3)=SRC(2,2)=SRC(3,1)=SRC(4,0)= F2(t4,t5,t6);
-    SRC(0,5)=SRC(1,4)=SRC(2,3)=SRC(3,2)=SRC(4,1)=SRC(5,0)= F2(t5,t6,t7);
-    SRC(0,6)=SRC(1,5)=SRC(2,4)=SRC(3,3)=SRC(4,2)=SRC(5,1)=SRC(6,0)= F2(t6,t7,t8);
-    SRC(0,7)=SRC(1,6)=SRC(2,5)=SRC(3,4)=SRC(4,3)=SRC(5,2)=SRC(6,1)=SRC(7,0)= F2(t7,t8,t9);
-    SRC(1,7)=SRC(2,6)=SRC(3,5)=SRC(4,4)=SRC(5,3)=SRC(6,2)=SRC(7,1)= F2(t8,t9,t10);
-    SRC(2,7)=SRC(3,6)=SRC(4,5)=SRC(5,4)=SRC(6,3)=SRC(7,2)= F2(t9,t10,t11);
-    SRC(3,7)=SRC(4,6)=SRC(5,5)=SRC(6,4)=SRC(7,3)= F2(t10,t11,t12);
-    SRC(4,7)=SRC(5,6)=SRC(6,5)=SRC(7,4)= F2(t11,t12,t13);
-    SRC(5,7)=SRC(6,6)=SRC(7,5)= F2(t12,t13,t14);
-    SRC(6,7)=SRC(7,6)= F2(t13,t14,t15);
-    SRC(7,7)= F2(t14,t15,t15);
-}
-static void x264_predict_8x8_ddr_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_TOP
-    PREDICT_8x8_LOAD_LEFT
-    PREDICT_8x8_LOAD_TOPLEFT
-    SRC(0,7)= F2(l7,l6,l5);
-    SRC(0,6)=SRC(1,7)= F2(l6,l5,l4);
-    SRC(0,5)=SRC(1,6)=SRC(2,7)= F2(l5,l4,l3);
-    SRC(0,4)=SRC(1,5)=SRC(2,6)=SRC(3,7)= F2(l4,l3,l2);
-    SRC(0,3)=SRC(1,4)=SRC(2,5)=SRC(3,6)=SRC(4,7)= F2(l3,l2,l1);
-    SRC(0,2)=SRC(1,3)=SRC(2,4)=SRC(3,5)=SRC(4,6)=SRC(5,7)= F2(l2,l1,l0);
-    SRC(0,1)=SRC(1,2)=SRC(2,3)=SRC(3,4)=SRC(4,5)=SRC(5,6)=SRC(6,7)= F2(l1,l0,lt);
-    SRC(0,0)=SRC(1,1)=SRC(2,2)=SRC(3,3)=SRC(4,4)=SRC(5,5)=SRC(6,6)=SRC(7,7)= F2(l0,lt,t0);
-    SRC(1,0)=SRC(2,1)=SRC(3,2)=SRC(4,3)=SRC(5,4)=SRC(6,5)=SRC(7,6)= F2(lt,t0,t1);
-    SRC(2,0)=SRC(3,1)=SRC(4,2)=SRC(5,3)=SRC(6,4)=SRC(7,5)= F2(t0,t1,t2);
-    SRC(3,0)=SRC(4,1)=SRC(5,2)=SRC(6,3)=SRC(7,4)= F2(t1,t2,t3);
-    SRC(4,0)=SRC(5,1)=SRC(6,2)=SRC(7,3)= F2(t2,t3,t4);
-    SRC(5,0)=SRC(6,1)=SRC(7,2)= F2(t3,t4,t5);
-    SRC(6,0)=SRC(7,1)= F2(t4,t5,t6);
-    SRC(7,0)= F2(t5,t6,t7);
-
-}
-static void x264_predict_8x8_vr_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_TOP
-    PREDICT_8x8_LOAD_LEFT
-    PREDICT_8x8_LOAD_TOPLEFT
-    SRC(0,6)= F2(l5,l4,l3);
-    SRC(0,7)= F2(l6,l5,l4);
-    SRC(0,4)=SRC(1,6)= F2(l3,l2,l1);
-    SRC(0,5)=SRC(1,7)= F2(l4,l3,l2);
-    SRC(0,2)=SRC(1,4)=SRC(2,6)= F2(l1,l0,lt);
-    SRC(0,3)=SRC(1,5)=SRC(2,7)= F2(l2,l1,l0);
-    SRC(0,1)=SRC(1,3)=SRC(2,5)=SRC(3,7)= F2(l0,lt,t0);
-    SRC(0,0)=SRC(1,2)=SRC(2,4)=SRC(3,6)= F1(lt,t0);
-    SRC(1,1)=SRC(2,3)=SRC(3,5)=SRC(4,7)= F2(lt,t0,t1);
-    SRC(1,0)=SRC(2,2)=SRC(3,4)=SRC(4,6)= F1(t0,t1);
-    SRC(2,1)=SRC(3,3)=SRC(4,5)=SRC(5,7)= F2(t0,t1,t2);
-    SRC(2,0)=SRC(3,2)=SRC(4,4)=SRC(5,6)= F1(t1,t2);
-    SRC(3,1)=SRC(4,3)=SRC(5,5)=SRC(6,7)= F2(t1,t2,t3);
-    SRC(3,0)=SRC(4,2)=SRC(5,4)=SRC(6,6)= F1(t2,t3);
-    SRC(4,1)=SRC(5,3)=SRC(6,5)=SRC(7,7)= F2(t2,t3,t4);
-    SRC(4,0)=SRC(5,2)=SRC(6,4)=SRC(7,6)= F1(t3,t4);
-    SRC(5,1)=SRC(6,3)=SRC(7,5)= F2(t3,t4,t5);
-    SRC(5,0)=SRC(6,2)=SRC(7,4)= F1(t4,t5);
-    SRC(6,1)=SRC(7,3)= F2(t4,t5,t6);
-    SRC(6,0)=SRC(7,2)= F1(t5,t6);
-    SRC(7,1)= F2(t5,t6,t7);
-    SRC(7,0)= F1(t6,t7);
-}
-static void x264_predict_8x8_hd_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_TOP
-    PREDICT_8x8_LOAD_LEFT
-    PREDICT_8x8_LOAD_TOPLEFT
-    int p1 = pack_pixel_1to2(F1(l6,l7), F2(l5,l6,l7));
-    int p2 = pack_pixel_1to2(F1(l5,l6), F2(l4,l5,l6));
-    int p3 = pack_pixel_1to2(F1(l4,l5), F2(l3,l4,l5));
-    int p4 = pack_pixel_1to2(F1(l3,l4), F2(l2,l3,l4));
-    int p5 = pack_pixel_1to2(F1(l2,l3), F2(l1,l2,l3));
-    int p6 = pack_pixel_1to2(F1(l1,l2), F2(l0,l1,l2));
-    int p7 = pack_pixel_1to2(F1(l0,l1), F2(lt,l0,l1));
-    int p8 = pack_pixel_1to2(F1(lt,l0), F2(l0,lt,t0));
-    int p9 = pack_pixel_1to2(F2(t1,t0,lt), F2(t2,t1,t0));
-    int p10 = pack_pixel_1to2(F2(t3,t2,t1), F2(t4,t3,t2));
-    int p11 = pack_pixel_1to2(F2(t5,t4,t3), F2(t6,t5,t4));
-    SRC_X4(0,7)= pack_pixel_2to4(p1,p2);
-    SRC_X4(0,6)= pack_pixel_2to4(p2,p3);
-    SRC_X4(4,7)=SRC_X4(0,5)= pack_pixel_2to4(p3,p4);
-    SRC_X4(4,6)=SRC_X4(0,4)= pack_pixel_2to4(p4,p5);
-    SRC_X4(4,5)=SRC_X4(0,3)= pack_pixel_2to4(p5,p6);
-    SRC_X4(4,4)=SRC_X4(0,2)= pack_pixel_2to4(p6,p7);
-    SRC_X4(4,3)=SRC_X4(0,1)= pack_pixel_2to4(p7,p8);
-    SRC_X4(4,2)=SRC_X4(0,0)= pack_pixel_2to4(p8,p9);
-    SRC_X4(4,1)= pack_pixel_2to4(p9,p10);
-    SRC_X4(4,0)= pack_pixel_2to4(p10,p11);
-}
-static void x264_predict_8x8_vl_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_TOP
-    PREDICT_8x8_LOAD_TOPRIGHT
-    SRC(0,0)= F1(t0,t1);
-    SRC(0,1)= F2(t0,t1,t2);
-    SRC(0,2)=SRC(1,0)= F1(t1,t2);
-    SRC(0,3)=SRC(1,1)= F2(t1,t2,t3);
-    SRC(0,4)=SRC(1,2)=SRC(2,0)= F1(t2,t3);
-    SRC(0,5)=SRC(1,3)=SRC(2,1)= F2(t2,t3,t4);
-    SRC(0,6)=SRC(1,4)=SRC(2,2)=SRC(3,0)= F1(t3,t4);
-    SRC(0,7)=SRC(1,5)=SRC(2,3)=SRC(3,1)= F2(t3,t4,t5);
-    SRC(1,6)=SRC(2,4)=SRC(3,2)=SRC(4,0)= F1(t4,t5);
-    SRC(1,7)=SRC(2,5)=SRC(3,3)=SRC(4,1)= F2(t4,t5,t6);
-    SRC(2,6)=SRC(3,4)=SRC(4,2)=SRC(5,0)= F1(t5,t6);
-    SRC(2,7)=SRC(3,5)=SRC(4,3)=SRC(5,1)= F2(t5,t6,t7);
-    SRC(3,6)=SRC(4,4)=SRC(5,2)=SRC(6,0)= F1(t6,t7);
-    SRC(3,7)=SRC(4,5)=SRC(5,3)=SRC(6,1)= F2(t6,t7,t8);
-    SRC(4,6)=SRC(5,4)=SRC(6,2)=SRC(7,0)= F1(t7,t8);
-    SRC(4,7)=SRC(5,5)=SRC(6,3)=SRC(7,1)= F2(t7,t8,t9);
-    SRC(5,6)=SRC(6,4)=SRC(7,2)= F1(t8,t9);
-    SRC(5,7)=SRC(6,5)=SRC(7,3)= F2(t8,t9,t10);
-    SRC(6,6)=SRC(7,4)= F1(t9,t10);
-    SRC(6,7)=SRC(7,5)= F2(t9,t10,t11);
-    SRC(7,6)= F1(t10,t11);
-    SRC(7,7)= F2(t10,t11,t12);
-}
-static void x264_predict_8x8_hu_c( pixel *src, pixel edge[36] )
-{
-    PREDICT_8x8_LOAD_LEFT
-    int p1 = pack_pixel_1to2(F1(l0,l1), F2(l0,l1,l2));
-    int p2 = pack_pixel_1to2(F1(l1,l2), F2(l1,l2,l3));
-    int p3 = pack_pixel_1to2(F1(l2,l3), F2(l2,l3,l4));
-    int p4 = pack_pixel_1to2(F1(l3,l4), F2(l3,l4,l5));
-    int p5 = pack_pixel_1to2(F1(l4,l5), F2(l4,l5,l6));
-    int p6 = pack_pixel_1to2(F1(l5,l6), F2(l5,l6,l7));
-    int p7 = pack_pixel_1to2(F1(l6,l7), F2(l6,l7,l7));
-    int p8 = pack_pixel_1to2(l7,l7);
-    SRC_X4(0,0)= pack_pixel_2to4(p1,p2);
-    SRC_X4(0,1)= pack_pixel_2to4(p2,p3);
-    SRC_X4(4,0)=SRC_X4(0,2)= pack_pixel_2to4(p3,p4);
-    SRC_X4(4,1)=SRC_X4(0,3)= pack_pixel_2to4(p4,p5);
-    SRC_X4(4,2)=SRC_X4(0,4)= pack_pixel_2to4(p5,p6);
-    SRC_X4(4,3)=SRC_X4(0,5)= pack_pixel_2to4(p6,p7);
-    SRC_X4(4,4)=SRC_X4(0,6)= pack_pixel_2to4(p7,p8);
-    SRC_X4(4,5)=SRC_X4(4,6)= SRC_X4(0,7) = SRC_X4(4,7) = pack_pixel_2to4(p8,p8);
-}
-
-/****************************************************************************
  * Exported functions:
  ****************************************************************************/
-void x264_predict_16x16_init( int cpu, x264_predict_t pf[7] )
+void x264_predict_16x16_init( x264_predict_t pf[7] )
 {
     pf[I_PRED_16x16_V ]     = x264_predict_16x16_v_c;
     pf[I_PRED_16x16_H ]     = x264_predict_16x16_h_c;
@@ -880,7 +617,7 @@ void x264_predict_16x16_init( int cpu, x264_predict_t pf[7] )
 
 }
 
-void x264_predict_8x8c_init( int cpu, x264_predict_t pf[7] )
+void x264_predict_8x8c_init( x264_predict_t pf[7] )
 {
     pf[I_PRED_CHROMA_V ]     = x264_predict_8x8c_v_c;
     pf[I_PRED_CHROMA_H ]     = x264_predict_8x8c_h_c;
@@ -892,7 +629,7 @@ void x264_predict_8x8c_init( int cpu, x264_predict_t pf[7] )
 
 }
 
-void x264_predict_8x16c_init( int cpu, x264_predict_t pf[7] )
+void x264_predict_8x16c_init( x264_predict_t pf[7] )
 {
     pf[I_PRED_CHROMA_V ]     = x264_predict_8x16c_v_c;
     pf[I_PRED_CHROMA_H ]     = x264_predict_8x16c_h_c;
@@ -904,25 +641,8 @@ void x264_predict_8x16c_init( int cpu, x264_predict_t pf[7] )
 
 }
 
-void x264_predict_8x8_init( int cpu, x264_predict8x8_t pf[12], x264_predict_8x8_filter_t *predict_filter )
-{
-    pf[I_PRED_8x8_V]      = x264_predict_8x8_v_c;
-    pf[I_PRED_8x8_H]      = x264_predict_8x8_h_c;
-    pf[I_PRED_8x8_DC]     = x264_predict_8x8_dc_c;
-    pf[I_PRED_8x8_DDL]    = x264_predict_8x8_ddl_c;
-    pf[I_PRED_8x8_DDR]    = x264_predict_8x8_ddr_c;
-    pf[I_PRED_8x8_VR]     = x264_predict_8x8_vr_c;
-    pf[I_PRED_8x8_HD]     = x264_predict_8x8_hd_c;
-    pf[I_PRED_8x8_VL]     = x264_predict_8x8_vl_c;
-    pf[I_PRED_8x8_HU]     = x264_predict_8x8_hu_c;
-    pf[I_PRED_8x8_DC_LEFT]= x264_predict_8x8_dc_left_c;
-    pf[I_PRED_8x8_DC_TOP] = x264_predict_8x8_dc_top_c;
-    pf[I_PRED_8x8_DC_128] = x264_predict_8x8_dc_128_c;
-    *predict_filter       = x264_predict_8x8_filter_c;
 
-}
-
-void x264_predict_4x4_init( int cpu, x264_predict_t pf[12] )
+void x264_predict_4x4_init( x264_predict_t pf[12] )
 {
     pf[I_PRED_4x4_V]      = x264_predict_4x4_v_c;
     pf[I_PRED_4x4_H]      = x264_predict_4x4_h_c;

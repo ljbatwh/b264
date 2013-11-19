@@ -41,7 +41,7 @@ static struct disp_window
     Window window;
 } disp_window[10];
 
-static inline void disp_chkerror( int cond, char *e )
+static  void disp_chkerror( int cond, char *e )
 {
     if( !cond )
         return;

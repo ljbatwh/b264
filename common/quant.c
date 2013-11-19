@@ -192,21 +192,9 @@ static void idct_dequant_2x4_dconly( dctcoef dct[8], int dequant_mf[6][16], int 
     dct[7] = ((b6 + b7) * dmf + 32) >> 6;
 }
 
-static ALWAYS_INLINE void optimize_chroma_idct_dequant_2x4( dctcoef out[8], dctcoef dct[8], int dmf )
-{
-    IDCT_DEQUANT_2X4_START
-    out[0] = ((b0 + b1) * dmf + 2080) >> 6; /* 2080 = 32 + (32<<6) */
-    out[1] = ((b2 + b3) * dmf + 2080) >> 6;
-    out[2] = ((b0 - b1) * dmf + 2080) >> 6;
-    out[3] = ((b2 - b3) * dmf + 2080) >> 6;
-    out[4] = ((b4 - b5) * dmf + 2080) >> 6;
-    out[5] = ((b6 - b7) * dmf + 2080) >> 6;
-    out[6] = ((b4 + b5) * dmf + 2080) >> 6;
-    out[7] = ((b6 + b7) * dmf + 2080) >> 6;
-}
 #undef IDCT_DEQUANT_2X4_START
 
-static ALWAYS_INLINE void optimize_chroma_idct_dequant_2x2( dctcoef out[4], dctcoef dct[4], int dmf )
+static  void optimize_chroma_idct_dequant_2x2( dctcoef out[4], dctcoef dct[4], int dmf )
 {
     int d0 = dct[0] + dct[1];
     int d1 = dct[2] + dct[3];
@@ -218,41 +206,36 @@ static ALWAYS_INLINE void optimize_chroma_idct_dequant_2x2( dctcoef out[4], dctc
     out[3] = ((d2 - d3) * dmf >> 5) + 32;
 }
 
-static ALWAYS_INLINE int optimize_chroma_round( dctcoef *ref, dctcoef *dct, int dequant_mf, int chroma422 )
+static  int optimize_chroma_round( dctcoef *ref, dctcoef *dct, int dequant_mf )
 {
     dctcoef out[8];
 
-    if( chroma422 )
-        optimize_chroma_idct_dequant_2x4( out, dct, dequant_mf );
-    else
+
         optimize_chroma_idct_dequant_2x2( out, dct, dequant_mf );
 
     int sum = 0;
-    for( int i = 0; i < (chroma422?8:4); i++ )
+    for( int i = 0; i < (4); i++ )
         sum |= ref[i] ^ out[i];
     return sum >> 6;
 }
 
-static ALWAYS_INLINE int optimize_chroma_dc_internal( dctcoef *dct, int dequant_mf, int chroma422 )
+static  int optimize_chroma_dc_internal( dctcoef *dct, int dequant_mf )
 {
     /* dequant_mf = h->dequant4_mf[CQM_4IC + b_inter][i_qp%6][0] << i_qp/6, max 32*64 */
     dctcoef dct_orig[8];
     int coeff, nz;
 
-    if( chroma422 )
-        optimize_chroma_idct_dequant_2x4( dct_orig, dct, dequant_mf );
-    else
         optimize_chroma_idct_dequant_2x2( dct_orig, dct, dequant_mf );
 
     /* If the DC coefficients already round to zero, terminate early. */
     int sum = 0;
-    for( int i = 0; i < (chroma422?8:4); i++ )
+    for( int i = 0; i < (4); i++ )
         sum |= dct_orig[i];
     if( !(sum >> 6) )
         return 0;
 
     /* Start with the highest frequency coefficient... is this the best option? */
-    for( nz = 0, coeff = (chroma422?7:3); coeff >= 0; coeff-- )
+    for( nz = 0, coeff = (3); coeff >= 0; coeff-- )
     {
         int level = dct[coeff];
         int sign = level>>31 | 1; /* dct[coeff] < 0 ? -1 : 1 */
@@ -260,7 +243,7 @@ static ALWAYS_INLINE int optimize_chroma_dc_internal( dctcoef *dct, int dequant_
         while( level )
         {
             dct[coeff] = level - sign;
-            if( optimize_chroma_round( dct_orig, dct, dequant_mf, chroma422 ) )
+            if( optimize_chroma_round( dct_orig, dct, dequant_mf ) )
             {
                 nz = 1;
                 dct[coeff] = level;
@@ -275,12 +258,12 @@ static ALWAYS_INLINE int optimize_chroma_dc_internal( dctcoef *dct, int dequant_
 
 static int optimize_chroma_2x2_dc( dctcoef dct[4], int dequant_mf )
 {
-    return optimize_chroma_dc_internal( dct, dequant_mf, 0 );
+    return optimize_chroma_dc_internal( dct, dequant_mf);
 }
 
 static int optimize_chroma_2x4_dc( dctcoef dct[8], int dequant_mf )
 {
-    return optimize_chroma_dc_internal( dct, dequant_mf, 1 );
+    return optimize_chroma_dc_internal( dct, dequant_mf);
 }
 
 static void x264_denoise_dct( dctcoef *dct, uint32_t *sum, udctcoef *offset, int size )
@@ -317,7 +300,7 @@ const uint8_t x264_decimate_table8[64] =
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
 
-static int ALWAYS_INLINE x264_decimate_score_internal( dctcoef *dct, int i_max )
+static int  x264_decimate_score_internal( dctcoef *dct, int i_max )
 {
     const uint8_t *ds_table = (i_max == 64) ? x264_decimate_table8 : x264_decimate_table4;
     int i_score = 0;
@@ -405,19 +388,7 @@ static int x264_coeff_level_run8( dctcoef *dct, x264_run_level_t *runlevel ){ in
 static int x264_coeff_level_run15( dctcoef *dct, x264_run_level_t *runlevel ){ int i_last = runlevel->last = x264_coeff_last15(dct); int i_total = 0; int mask = 0; do { runlevel->level[i_total++] = dct[i_last]; mask |= 1 << (i_last); while( --i_last >= 0 && dct[i_last] == 0 ); } while( i_last >= 0 ); runlevel->mask = mask; return i_total;}
 static int x264_coeff_level_run16( dctcoef *dct, x264_run_level_t *runlevel ){ int i_last = runlevel->last = x264_coeff_last16(dct); int i_total = 0; int mask = 0; do { runlevel->level[i_total++] = dct[i_last]; mask |= 1 << (i_last); while( --i_last >= 0 && dct[i_last] == 0 ); } while( i_last >= 0 ); runlevel->mask = mask; return i_total;}
 
-#if ARCH_X86_64
-#define INIT_TRELLIS(cpu)\
-    pf->trellis_cabac_4x4 = x264_trellis_cabac_4x4_##cpu;\
-    pf->trellis_cabac_8x8 = x264_trellis_cabac_8x8_##cpu;\
-    pf->trellis_cabac_4x4_psy = x264_trellis_cabac_4x4_psy_##cpu;\
-    pf->trellis_cabac_8x8_psy = x264_trellis_cabac_8x8_psy_##cpu;\
-    pf->trellis_cabac_dc = x264_trellis_cabac_dc_##cpu;\
-    pf->trellis_cabac_chroma_422_dc = x264_trellis_cabac_chroma_422_dc_##cpu;
-#else
-#define INIT_TRELLIS(...)
-#endif
-
-void x264_quant_init( x264_t *h, int cpu, x264_quant_function_t *pf )
+void x264_quant_init( x264_t *h, x264_quant_function_t *pf )
 {
     pf->quant_8x8 = quant_8x8;
     pf->quant_4x4 = quant_4x4;

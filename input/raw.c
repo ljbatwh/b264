@@ -63,9 +63,7 @@ static int open_file( char *psz_filename, hnd_t *p_handle, video_info_t *info, c
         info->csp = X264_CSP_I420;
 
     h->bit_depth = opt->bit_depth;
-    FAIL_IF_ERROR( h->bit_depth < 8 || h->bit_depth > 16, "unsupported bit depth `%d'\n", h->bit_depth );
-    if( h->bit_depth > 8 )
-        info->csp |= X264_CSP_HIGH_DEPTH;
+    FAIL_IF_ERROR( h->bit_depth != 8, "unsupported bit depth `%d'\n", h->bit_depth );
 
     if( !strcmp( psz_filename, "-" ) )
         h->fh = stdin;
@@ -74,9 +72,7 @@ static int open_file( char *psz_filename, hnd_t *p_handle, video_info_t *info, c
     if( h->fh == NULL )
         return -1;
 
-    info->thread_safe = 1;
     info->num_frames  = 0;
-    info->vfr         = 0;
 
     const x264_cli_csp_t *csp = x264_cli_get_csp( info->csp );
     for( int i = 0; i < csp->planes; i++ )

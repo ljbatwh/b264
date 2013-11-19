@@ -58,42 +58,6 @@ int64_t x264_mdate( void )
 #endif
 }
 
-#if HAVE_WIN32THREAD || PTW32_STATIC_LIB
-/* state of the threading library being initialized */
-static volatile LONG x264_threading_is_init = 0;
-
-static void x264_threading_destroy( void )
-{
-#if PTW32_STATIC_LIB
-    pthread_win32_thread_detach_np();
-    pthread_win32_process_detach_np();
-#else
-    x264_win32_threading_destroy();
-#endif
-}
-
-int x264_threading_init( void )
-{
-    /* if already init, then do nothing */
-    if( InterlockedCompareExchange( &x264_threading_is_init, 1, 0 ) )
-        return 0;
-#if PTW32_STATIC_LIB
-    /* if static pthread-win32 is already initialized, then do nothing */
-    if( ptw32_processInitialized )
-        return 0;
-    if( !pthread_win32_process_attach_np() )
-        return -1;
-#else
-    if( x264_win32_threading_init() )
-        return -1;
-#endif
-    /* register cleanup to run at process termination */
-    atexit( x264_threading_destroy );
-
-    return 0;
-}
-#endif
-
 #ifdef _WIN32
 /* Functions for dealing with Unicode on Windows. */
 FILE *x264_fopen( const char *filename, const char *mode )

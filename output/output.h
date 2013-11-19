@@ -31,7 +31,6 @@
 
 typedef struct
 {
-    int use_dts_compress;
 } cli_output_opt_t;
 
 typedef struct

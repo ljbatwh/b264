@@ -26,32 +26,6 @@
 #ifndef X264_MC_H
 #define X264_MC_H
 
-struct x264_weight_t;
-typedef void (* weight_fn_t)( pixel *, intptr_t, pixel *,intptr_t, const struct x264_weight_t *, int );
-typedef struct x264_weight_t
-{
-    /* aligning the first member is a gcc hack to force the struct to be
-     * 16 byte aligned, as well as force sizeof(struct) to be a multiple of 16 */
-    ALIGNED_16( int16_t cachea[8] );
-    int16_t cacheb[8];
-    int32_t i_denom;
-    int32_t i_scale;
-    int32_t i_offset;
-    weight_fn_t *weightfn;
-} ALIGNED_16( x264_weight_t );
-
-extern const x264_weight_t x264_weight_none[3];
-
-#define SET_WEIGHT( w, b, s, d, o )\
-{\
-    (w).i_scale = (s);\
-    (w).i_denom = (d);\
-    (w).i_offset = (o);\
-    if( b )\
-        h->mc.weight_cache( h, &w );\
-    else\
-        w.weightfn = NULL;\
-}
 
 /* Do the MC
  * XXX: Only width = 4, 8 or 16 are valid
@@ -63,11 +37,11 @@ extern const x264_weight_t x264_weight_none[3];
 typedef struct
 {
     void (*mc_luma)( pixel *dst, intptr_t i_dst, pixel **src, intptr_t i_src,
-                     int mvx, int mvy, int i_width, int i_height, const x264_weight_t *weight );
+                     int mvx, int mvy, int i_width, int i_height );
 
     /* may round up the dimensions if they're not a power of 2 */
     pixel* (*get_ref)( pixel *dst, intptr_t *i_dst, pixel **src, intptr_t i_src,
-                       int mvx, int mvy, int i_width, int i_height, const x264_weight_t *weight );
+                       int mvx, int mvy, int i_width, int i_height );
 
     /* mc_chroma may write up to 2 bytes of garbage to the right of dst,
      * so it must be run from left to right. */
@@ -75,7 +49,7 @@ typedef struct
                        int mvx, int mvy, int i_width, int i_height );
 
     void (*avg[12])( pixel *dst,  intptr_t dst_stride, pixel *src1, intptr_t src1_stride,
-                     pixel *src2, intptr_t src2_stride, int i_weight );
+                     pixel *src2, intptr_t src2_stride );
 
     /* only 16x16, 8x8, and 4x4 defined */
     void (*copy[7])( pixel *dst, intptr_t dst_stride, pixel *src, intptr_t src_stride, int i_height );
@@ -96,13 +70,6 @@ typedef struct
     void (*hpel_filter)( pixel *dsth, pixel *dstv, pixel *dstc, pixel *src,
                          intptr_t i_stride, int i_width, int i_height, int16_t *buf );
 
-    /* prefetch the next few macroblocks of fenc or fdec */
-    void (*prefetch_fenc)    ( pixel *pix_y, intptr_t stride_y, pixel *pix_uv, intptr_t stride_uv, int mb_x );
-    void (*prefetch_fenc_420)( pixel *pix_y, intptr_t stride_y, pixel *pix_uv, intptr_t stride_uv, int mb_x );
-    void (*prefetch_fenc_422)( pixel *pix_y, intptr_t stride_y, pixel *pix_uv, intptr_t stride_uv, int mb_x );
-    /* prefetch the next few macroblocks of a hpel reference frame */
-    void (*prefetch_ref)( pixel *pix, intptr_t stride, int parity );
-
     void *(*memcpy_aligned)( void *dst, const void *src, size_t n );
     void (*memzero_aligned)( void *dst, size_t n );
 
@@ -114,15 +81,8 @@ typedef struct
 
     void (*frame_init_lowres_core)( pixel *src0, pixel *dst0, pixel *dsth, pixel *dstv, pixel *dstc,
                                     intptr_t src_stride, intptr_t dst_stride, int width, int height );
-    weight_fn_t *weight;
-    weight_fn_t *offsetadd;
-    weight_fn_t *offsetsub;
-    void (*weight_cache)( x264_t *, x264_weight_t * );
-
-    void (*mbtree_propagate_cost)( int *dst, uint16_t *propagate_in, uint16_t *intra_costs,
-                                   uint16_t *inter_costs, uint16_t *inv_qscales, float *fps_factor, int len );
 } x264_mc_functions_t;
 
-void x264_mc_init( int cpu, x264_mc_functions_t *pf, int cpu_independent );
+void x264_mc_init( x264_mc_functions_t *pf );
 
 #endif
