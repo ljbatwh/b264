@@ -44,6 +44,7 @@
 #include "x264cli.h"
 #include "input/input.h"
 #include "output/output.h"
+#include "filters/filters.h"
 
 #define FAIL_IF_ERROR( cond, ... ) FAIL_IF_ERR( cond, "x264", __VA_ARGS__ )
 
@@ -150,6 +151,9 @@ typedef struct {
 /* file i/o operation structs */
 cli_input_t cli_input;
 static cli_output_t cli_output;
+
+/* video filter operation struct */
+static cli_vid_filter_t filter;
 
 static const char * const demuxer_names[] =
 {
@@ -390,8 +394,7 @@ static void help( x264_param_t *defaults, int longhelp )
         "                                    --no-mbtree --me dia --no-mixed-refs\n"
         "                                    --partitions i8x8,i4x4 --rc-lookahead 0\n"
         "                                    --ref 1 --subme 1 --trellis 0 --weightp 1\n");
-    else H0( "                                  - ultrafast,superfast,veryfast,faster,fast\n"
-             "                                  - medium,slow,slower,veryslow,placebo\n" );
+    else H0( "                                  - ultrafast,superfast\n" );
     H0( "      --tune <string>         Tune the settings for a particular type of source\n"
         "                              or situation\n"
         "                                  Overridden by user settings.\n"
@@ -408,14 +411,8 @@ static void help( x264_param_t *defaults, int longhelp )
         "                                    --bframes 0 --force-cfr --no-mbtree\n"
         "                                    --sync-lookahead 0 --sliced-threads\n"
         "                                    --rc-lookahead 0\n" );
-    else H0( "                                  - psy tunings: film,animation,grain,\n"
-             "                                                 stillimage,psnr,ssim\n"
+    else H0( "                                  - psy tunings: psnr,ssim\n"
              "                                  - other tunings: fastdecode,zerolatency\n" );
-    H2( "      --slow-firstpass        Don't force these faster settings with --pass 1:\n"
-        "                                  --no-8x8dct --me dia --partitions none\n"
-        "                                  --ref 1 --subme {2 if >2 else unchanged}\n"
-        "                                  --trellis 0 --fast-pskip\n" );
-    else H1( "      --slow-firstpass        Don't force faster settings with --pass 1\n" );
     H0( "\n" );
     H0( "Frame-type options:\n" );
     H0( "\n" );
@@ -424,8 +421,6 @@ static void help( x264_param_t *defaults, int longhelp )
     H2( "      --no-scenecut           Disable adaptive I-frame decision\n" );
     H2( "      --scenecut <integer>    How aggressively to insert extra I-frames [%d]\n", defaults->i_scenecut_threshold );
     H2( "      --intra-refresh         Use Periodic Intra Refresh instead of IDR frames\n" );
-    H1( "      --open-gop              Use recovery points to close GOPs\n"
-        "                              Only available with b-frames\n" );
     H1( "      --no-cabac              Disable CABAC\n" );
     H1( "      --no-deblock            Disable loop filter\n" );
     H1( "  -f, --deblock <alpha:beta>  Loop filter parameters [%d:%d]\n",
@@ -574,7 +569,6 @@ static void help( x264_param_t *defaults, int longhelp )
 
     H2( "      --nal-hrd <string>      Signal HRD information (requires vbv-bufsize)\n"
         "                                  - none, vbr, cbr (cbr not allowed in .mp4)\n" );
-    H2( "      --pic-struct            Force pic_struct in Picture Timing SEI\n" );
     H2( "      --crop-rect <string>    Add 'left,top,right,bottom' to the bitstream-level\n"
         "                              cropping rectangle\n" );
 
@@ -601,10 +595,6 @@ static void help( x264_param_t *defaults, int longhelp )
     H0( "      --seek <integer>        First frame to encode\n" );
     H0( "      --frames <integer>      Maximum number of frames to encode\n" );
     H0( "      --level <string>        Specify level (as defined by Annex A)\n" );
-    H1( "      --bluray-compat         Enable compatibility hacks for Blu-ray support\n" );
-    H1( "      --avcintra-compat       Enable compatibility hacks for AVC-Intra support\n" );
-    H1( "      --stitchable            Don't optimize headers based on video content\n"
-        "                              Ensures ability to recombine a segmented encode\n" );
     H1( "\n" );
     H1( "  -v, --verbose               Print stats for each frame\n" );
     H1( "      --no-progress           Don't show the progress indicator while encoding\n" );
@@ -619,9 +609,6 @@ static void help( x264_param_t *defaults, int longhelp )
         "                                  as opposed to letting them select different algorithms\n" );
     H2( "      --asm <integer>         Override CPU detection\n" );
     H2( "      --no-asm                Disable all CPU optimizations\n" );
-    H2( "      --opencl                Enable use of OpenCL\n" );
-    H2( "      --opencl-clbin <string> Specify path of compiled OpenCL kernel cache\n" );
-    H2( "      --opencl-device <integer> Specify OpenCL device ordinal\n" );
     H2( "      --visualize             Show MB types overlayed on the encoded video\n" );
     H2( "      --dump-yuv <string>     Save reconstructed frames\n" );
     H2( "      --sps-id <integer>      Set SPS and PPS id numbers [%d]\n", defaults->i_sps_id );
@@ -670,9 +657,6 @@ static struct option long_options[] =
     { "preset",      required_argument, NULL, OPT_PRESET },
     { "tune",        required_argument, NULL, OPT_TUNE },
     { "bitrate",     required_argument, NULL, 'B' },
-    { "open-gop",          no_argument, NULL, 0 },
-    { "bluray-compat",     no_argument, NULL, 0 },
-    { "avcintra-compat",   no_argument, NULL, 0 },
     { "min-keyint",  required_argument, NULL, 'i' },
     { "keyint",      required_argument, NULL, 'I' },
     { "intra-refresh",     no_argument, NULL, 0 },
@@ -792,7 +776,6 @@ static struct option long_options[] =
     { "input-res",   required_argument, NULL, OPT_INPUT_RES },
     { "output-csp",  required_argument, NULL, OPT_OUTPUT_CSP },
     { "input-range", required_argument, NULL, OPT_INPUT_RANGE },
-    { "stitchable",        no_argument, NULL, 0 },
     {0, 0, 0, 0}
 };
 
@@ -840,6 +823,66 @@ static int select_input( const char *demuxer, char *used_demuxer, char *filename
     return 0;
 }
 
+static int init_vid_filters( char *sequence, hnd_t *handle, video_info_t *info, x264_param_t *param, int output_csp )
+{
+    x264_register_vid_filters();
+
+    /* intialize baseline filters */
+    if( x264_init_vid_filter( "source", handle, &filter, info, param, NULL ) ) /* wrap demuxer into a filter */
+        return -1;
+    if( x264_init_vid_filter( "resize", handle, &filter, info, param, "normcsp" ) ) /* normalize csps to be of a known/supported format */
+        return -1;
+    if( x264_init_vid_filter( "fix_vfr_pts", handle, &filter, info, param, NULL ) ) /* fix vfr pts */
+        return -1;
+
+    /* parse filter chain */
+    for( char *p = sequence; p && *p; )
+    {
+        int tok_len = strcspn( p, "/" );
+        int p_len = strlen( p );
+        p[tok_len] = 0;
+        int name_len = strcspn( p, ":" );
+        p[name_len] = 0;
+        name_len += name_len != tok_len;
+        if( x264_init_vid_filter( p, handle, &filter, info, param, p + name_len ) )
+            return -1;
+        p += X264_MIN( tok_len+1, p_len );
+    }
+
+    /* force end result resolution */
+    if( !param->i_width && !param->i_height )
+    {
+        param->i_height = info->height;
+        param->i_width  = info->width;
+    }
+    /* force the output csp to what the user specified (or the default) */
+    param->i_csp = info->csp;
+    int csp = info->csp & X264_CSP_MASK;
+    if( output_csp == X264_CSP_I420 && (csp < X264_CSP_I420 || csp > X264_CSP_NV12) )
+        param->i_csp = X264_CSP_I420;
+    else if( output_csp == X264_CSP_I422 && (csp < X264_CSP_I422 || csp > X264_CSP_NV16) )
+        param->i_csp = X264_CSP_I422;
+    else if( output_csp == X264_CSP_I444 && (csp < X264_CSP_I444 || csp > X264_CSP_YV24) )
+        param->i_csp = X264_CSP_I444;
+    else if( output_csp == X264_CSP_RGB && (csp < X264_CSP_BGR || csp > X264_CSP_RGB) )
+        param->i_csp = X264_CSP_RGB;
+    param->i_csp |= info->csp & X264_CSP_HIGH_DEPTH;
+    /* if the output range is not forced, assign it to the input one now */
+    if( param->vui.b_fullrange == RANGE_AUTO )
+        param->vui.b_fullrange = info->fullrange;
+
+    if( x264_init_vid_filter( "resize", handle, &filter, info, param, NULL ) )
+        return -1;
+
+    char args[20];
+    sprintf( args, "bit_depth=%d", x264_bit_depth );
+
+    if( x264_init_vid_filter( "depth", handle, &filter, info, param, args ) )
+        return -1;
+
+    return 0;
+}
+
 static int parse_enum_name( const char *arg, const char * const *names, const char **dst )
 {
     for( int i = 0; names[i]; i++ )
@@ -870,7 +913,7 @@ static int parse( int argc, char **argv, x264_param_t *param, cli_opt_t *opt )
     const char *muxer = muxer_names[0];
     x264_param_t defaults;
     char *profile = NULL;
-    int b_user_ref = 0;
+    char *vid_filters = NULL;
     int b_user_fps = 0;
     cli_input_opt_t input_opt;
     cli_output_opt_t output_opt;
@@ -979,9 +1022,6 @@ static int parse( int argc, char **argv, x264_param_t *param, cli_opt_t *opt )
             case OPT_PROFILE:
                 profile = optarg;
                 break;
-            case 'r':
-                b_user_ref = 1;
-                goto generic_option;
             case OPT_FPS:
                 b_user_fps = 1;
                 goto generic_option;
@@ -1085,13 +1125,23 @@ generic_option:
         info.fps_num = param->i_fps_num;
         info.fps_den = param->i_fps_den;
     }
+    if( !info.vfr )
+    {
+        info.timebase_num = info.fps_den;
+        info.timebase_den = info.fps_num;
+    }
     if( input_opt.input_range != RANGE_AUTO )
         info.fullrange = input_opt.input_range;
 
+    if( init_vid_filters( vid_filters, &opt->hin, &info, param, output_csp ) )
+        return -1;
 
     /* set param flags from the post-filtered video */
+//    param->b_vfr_input = info.vfr;
     param->i_fps_num = info.fps_num;
     param->i_fps_den = info.fps_den;
+//    param->i_timebase_num = info.timebase_num;
+//    param->i_timebase_den = info.timebase_den;
     param->vui.i_sar_width  = info.sar_width;
     param->vui.i_sar_height = info.sar_height;
 
@@ -1202,6 +1252,9 @@ static int encode( x264_param_t *param, cli_opt_t *opt )
     /* Encode frames */
     for( ; !b_ctrl_c && (i_frame < param->i_frame_total || !param->i_frame_total); i_frame++ )
     {
+        if( filter.get_frame( opt->hin, &cli_pic, i_frame + opt->i_seek ) )
+            break;
+
         x264_picture_init( &pic );
         convert_cli_to_lib_pic( &pic, &cli_pic );
 

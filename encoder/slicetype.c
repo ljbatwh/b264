@@ -39,7 +39,7 @@ static void x264_lowres_context_init( x264_t *h, x264_mb_analysis_t *a )
     x264_mb_analyse_load_costs( h, a );
     if( h->param.analyse.i_subpel_refine > 1 )
     {
-        h->mb.i_me_method = X264_MIN( X264_ME_HEX, h->param.analyse.i_me_method );
+        h->mb.i_me_method = X264_MIN( X264_ME_DIA, h->param.analyse.i_me_method );
         h->mb.i_subpel_refine = 4;
     }
     else
@@ -81,7 +81,7 @@ static void x264_slicetype_mb_cost( x264_t *h, x264_mb_analysis_t *a,
                             h->mb.i_mb_width <= 2 || h->mb.i_mb_height <= 2;
 
     ALIGNED_ARRAY_16( pixel, pix1,[9*FDEC_STRIDE] );
-    x264_me_t m[2];
+    x264_me_t m;
     int i_bcost = COST_MAX;
     int list_used = 0;
     /* A small, arbitrary bias to avoid VBV problems caused by zero-residual lookahead blocks. */
@@ -113,8 +113,6 @@ static void x264_slicetype_mb_cost( x264_t *h, x264_mb_analysis_t *a,
         (dst)[2] = &(src)[2][i_pel_offset]; \
         (dst)[3] = &(src)[3][i_pel_offset]; \
     }
-#define LOAD_WPELS_LUMA(dst,src) \
-    (dst) = &(src)[i_pel_offset];
 
 #define CLIP_MV( mv ) \
     do{ \
@@ -122,13 +120,13 @@ static void x264_slicetype_mb_cost( x264_t *h, x264_mb_analysis_t *a,
         mv[1] = x264_clip3( mv[1], h->mb.mv_min_spel[1], h->mb.mv_max_spel[1] ); \
     }while(0)
 
-    m[0].i_pixel = PIXEL_8x8;
-    m[0].p_cost_mv = a->p_cost_mv;
-    m[0].i_stride[0] = i_stride;
-    m[0].p_fenc[0] = h->mb.pic.p_fenc[0];
-    m[0].i_ref = 0;
-    LOAD_HPELS_LUMA( m[0].p_fref, fref0->lowres );
-
+    m.i_pixel = PIXEL_8x8;
+    m.p_cost_mv = a->p_cost_mv;
+    m.i_stride[0] = i_stride;
+    m.p_fenc[0] = h->mb.pic.p_fenc[0];
+    m.i_ref = 0;
+    LOAD_HPELS_LUMA( m.p_fref, fref0->lowres );
+    m.p_fref_w = m.p_fref[0];
 
     {
         if( do_search )
@@ -153,43 +151,42 @@ static void x264_slicetype_mb_cost( x264_t *h, x264_mb_analysis_t *a,
             }
 #undef MVC
             if( i_mvc <= 1 )
-                CP32( m[0].mvp, mvc[0] );
+                CP32( m.mvp, mvc[0] );
             else
-                x264_median_mv( m[0].mvp, mvc[0], mvc[1], mvc[2] );
+                x264_median_mv( m.mvp, mvc[0], mvc[1], mvc[2] );
 
             /* Fast skip for cases of near-zero residual.  Shortcut: don't bother except in the mv0 case,
              * since anything else is likely to have enough residual to not trigger the skip. */
-            if( !M32( m[0].mvp ) )
+            if( !M32( m.mvp ) )
             {
-                m[0].cost = h->pixf.mbcmp[PIXEL_8x8]( m[0].p_fenc[0], FENC_STRIDE, m[0].p_fref[0], m[0].i_stride[0] );
-                if( m[0].cost < 64 )
+                m.cost = h->pixf.mbcmp[PIXEL_8x8]( m.p_fenc[0], FENC_STRIDE, m.p_fref[0], m.i_stride[0] );
+                if( m.cost < 64 )
                 {
-                    M32( m[0].mv ) = 0;
+                    M32( m.mv ) = 0;
                     goto skip_motionest;
                 }
             }
 
-            x264_me_search( h, &m[0], mvc, i_mvc );
-            m[0].cost -= a->p_cost_mv[0]; // remove mvcost from skip mbs
-            if( M32( m[0].mv ) )
-                m[0].cost += 5 * a->i_lambda;
+            x264_me_search( h, &m, mvc, i_mvc );
+            m.cost -= a->p_cost_mv[0]; // remove mvcost from skip mbs
+            if( M32( m.mv ) )
+                m.cost += 5 * a->i_lambda;
 
 skip_motionest:
-            CP32( fenc_mvs[0], m[0].mv );
-            *fenc_costs[0] = m[0].cost;
+            CP32( fenc_mvs[0], m.mv );
+            *fenc_costs[0] = m.cost;
         }
         else
         {
-            CP32( m[0].mv, fenc_mvs[0] );
-            m[0].cost = *fenc_costs[0];
+            CP32( m.mv, fenc_mvs[0] );
+            m.cost = *fenc_costs[0];
         }
-        COPY2_IF_LT( i_bcost, m[0].cost, list_used, 1 );
+        COPY2_IF_LT( i_bcost, m.cost, list_used, 1 );
     }
 
 lowres_intra_mb:
     if( !fenc->b_intra_calculated )
     {
-        ALIGNED_ARRAY_16( pixel, edge,[36] );
         pixel *pix = &pix1[8+FDEC_STRIDE];
         pixel *src = &fenc->lowres[0][i_pel_offset];
         const int intra_penalty = 5 * a->i_lambda;
@@ -318,20 +315,20 @@ static int x264_slicetype_frame_cost( x264_t *h, x264_mb_analysis_t *a,
             dist_scale_factor = ( ((1-p0) << 8) + ((1-p0) >> 1) ) / (1-p0);
 
         int output_buf_size = h->mb.i_mb_height + (NUM_INTS + PAD_SIZE);
-        int *output_inter[1];
-        int *output_intra[1];
-        output_inter[0] = h->scratch_buffer2;
-        output_intra[0] = output_inter[0] + output_buf_size;
+        int *output_inter;
+        int *output_intra;
+        output_inter = h->scratch_buffer2;
+        output_intra = output_inter + output_buf_size;
 
         {
             {
                 h->i_threadslice_start = 0;
                 h->i_threadslice_end = h->mb.i_mb_height;
-                memset( output_inter[0], 0, (output_buf_size - PAD_SIZE) * sizeof(int) );
-                memset( output_intra[0], 0, (output_buf_size - PAD_SIZE) * sizeof(int) );
-                output_inter[0][NUM_ROWS] = output_intra[0][NUM_ROWS] = h->mb.i_mb_height;
+                memset( output_inter, 0, (output_buf_size - PAD_SIZE) * sizeof(int) );
+                memset( output_intra, 0, (output_buf_size - PAD_SIZE) * sizeof(int) );
+                output_inter[NUM_ROWS] = output_intra[NUM_ROWS] = h->mb.i_mb_height;
                 x264_slicetype_slice_t s = (x264_slicetype_slice_t){ h, a, frames, p0, 1, dist_scale_factor, do_search,
-                    output_inter[0], output_intra[0] };
+                    output_inter, output_intra };
                 x264_slicetype_slice_cost( &s );
             }
 
@@ -348,22 +345,22 @@ static int x264_slicetype_frame_cost( x264_t *h, x264_mb_analysis_t *a,
             int *row_satd_inter = fenc->i_row_satds[1-p0];
             int *row_satd_intra = fenc->i_row_satds[0];
             {
-                fenc->i_intra_mbs[1-p0] += output_inter[0][INTRA_MBS];
+                fenc->i_intra_mbs[1-p0] += output_inter[INTRA_MBS];
                 if( !fenc->b_intra_calculated )
                 {
-                    fenc->i_cost_est[0] += output_intra[0][COST_EST];
-                    fenc->i_cost_est_aq[0] += output_intra[0][COST_EST_AQ];
+                    fenc->i_cost_est[0] += output_intra[COST_EST];
+                    fenc->i_cost_est_aq[0] += output_intra[COST_EST_AQ];
                 }
 
-                fenc->i_cost_est[1-p0] += output_inter[0][COST_EST];
-                fenc->i_cost_est_aq[1-p0] += output_inter[0][COST_EST_AQ];
+                fenc->i_cost_est[1-p0] += output_inter[COST_EST];
+                fenc->i_cost_est_aq[1-p0] += output_inter[COST_EST_AQ];
 
                 if( h->param.rc.i_vbv_buffer_size )
                 {
-                    int row_count = output_inter[0][NUM_ROWS];
-                    memcpy( row_satd_inter, output_inter[0] + NUM_INTS, row_count * sizeof(int) );
+                    int row_count = output_inter[NUM_ROWS];
+                    memcpy( row_satd_inter, output_inter + NUM_INTS, row_count * sizeof(int) );
                     if( !fenc->b_intra_calculated )
-                        memcpy( row_satd_intra, output_intra[0] + NUM_INTS, row_count * sizeof(int) );
+                        memcpy( row_satd_intra, output_intra + NUM_INTS, row_count * sizeof(int) );
                     row_satd_inter += row_count;
                     row_satd_intra += row_count;
                 }
@@ -372,8 +369,6 @@ static int x264_slicetype_frame_cost( x264_t *h, x264_mb_analysis_t *a,
             i_score = fenc->i_cost_est[1-p0];
 
             fenc->b_intra_calculated = 1;
-
-            fenc->i_cost_est[1-p0] = i_score;
 
         }
     }
@@ -574,7 +569,7 @@ void x264_slicetype_decide( x264_t *h )
         x264_lowres_context_init( h, &a );
 
         frames[0] = h->lookahead->last_nonb;
-        memcpy( &frames[1], h->lookahead->current_frame, sizeof(x264_frame_t*) );
+        frames[1] = h->lookahead->current_frame;
         if( IS_X264_TYPE_I( h->lookahead->current_frame->i_type ) )
             p0 = 1;
         else // P
@@ -598,7 +593,7 @@ void x264_slicetype_decide( x264_t *h )
 
         x264_calculate_durations( h, h->lookahead->current_frame, NULL, &h->i_cpb_delay, &h->i_coded_fields );
 
-        h->lookahead->current_frame->f_planned_cpb_duration[0] = (double)h->lookahead->current_frame->i_cpb_duration *
+        h->lookahead->current_frame->f_planned_cpb_duration = (double)h->lookahead->current_frame->i_cpb_duration *
                                                                 h->sps->vui.i_num_units_in_tick / h->sps->vui.i_time_scale;
     }
 }

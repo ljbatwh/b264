@@ -293,13 +293,7 @@ void x264_sps_write( bs_t *s, x264_sps_t *sps )
             bs_write_ue( s, sps->vui.i_chroma_loc_bottom );
         }
 
-        bs_write1( s, sps->vui.b_timing_info_present );
-        if( sps->vui.b_timing_info_present )
-        {
-            bs_write32( s, sps->vui.i_num_units_in_tick );
-            bs_write32( s, sps->vui.i_time_scale );
-            bs_write1( s, sps->vui.b_fixed_frame_rate );
-        }
+        bs_write1( s, sps->vui.b_timing_info_present );//b_timing_info_present is 0
 
         bs_write1( s, sps->vui.b_nal_hrd_parameters_present );
         if( sps->vui.b_nal_hrd_parameters_present )

@@ -84,7 +84,6 @@ typedef struct
     x264_pixel_cmp_t mbcmp[8]; /* either satd or sad for subpel refine and mode decision */
     x264_pixel_cmp_t mbcmp_unaligned[8]; /* unaligned mbcmp for subpel */
     x264_pixel_cmp_t fpelcmp[8]; /* either satd or sad for fullpel motion search */ //initial when using
-    x264_pixel_cmp_x3_t fpelcmp_x3[7];//either satd_x3 or sad_x3
     x264_pixel_cmp_x4_t fpelcmp_x4[7];//either satd_x4 or sad_x4
     x264_pixel_cmp_t sad_aligned[8]; /* Aligned SAD for mbcmp */ //from PIXEL_16x16 to PIXEL_4x16
 

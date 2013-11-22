@@ -461,12 +461,12 @@ struct x264_t
 
     int64_t         i_disp_fields;  /* Number of displayed fields (both coded and implied via pic_struct) */
     int             i_disp_fields_last_frame;
-    int64_t         i_prev_duration; /* Duration of previous frame */
+//    int64_t         i_prev_duration; /* Duration of previous frame */
     int64_t         i_coded_fields; /* Number of coded fields (both coded and implied via pic_struct) */
     int64_t         i_cpb_delay;    /* Equal to number of fields preceding this field
                                      * since last buffering_period SEI */
-    int64_t         i_coded_fields_lookahead; /* Use separate counters for lookahead */
-    int64_t         i_cpb_delay_lookahead;
+//    int64_t         i_coded_fields_lookahead; /* Use separate counters for lookahead */
+//    int64_t         i_cpb_delay_lookahead;
 
     int64_t         i_cpb_delay_pir_offset;
     int64_t         i_cpb_delay_pir_offset_next;
@@ -511,7 +511,7 @@ struct x264_t
     struct
     {
         /* Frames to be encoded (whose types have been decided) */
-        x264_frame_t **current;
+        x264_frame_t *current;
         /* Unused frames: 0 = fenc, 1 = fdec */
         x264_frame_t **unused[2];
 
@@ -798,7 +798,6 @@ struct x264_t
         int     i_frame_count[3];
         int64_t i_frame_size[3];
         double  f_frame_qp[3];
-        int     i_consecutive_bframes[X264_BFRAME_MAX+1];
         /* */
         double  f_ssd_global[3];
         double  f_psnr_average[3];

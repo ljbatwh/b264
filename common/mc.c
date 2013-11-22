@@ -290,9 +290,6 @@ static void load_deinterleave_chroma_fdec( pixel *dst, pixel *src, intptr_t i_sr
     x264_plane_copy_deinterleave_c( dst, FDEC_STRIDE, dst+FDEC_STRIDE/2, FDEC_STRIDE, src, i_src, 8, height );
 }
 
-static void prefetch_ref_null( pixel *pix, intptr_t stride, int parity )
-{}
-
 static void memzero_aligned( void * dst, size_t n )
 {
     memset( dst, 0, n );

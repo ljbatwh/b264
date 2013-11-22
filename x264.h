@@ -151,18 +151,22 @@ typedef struct
 
 /* Analyse flags */
 #define X264_ANALYSE_I4x4       0x0001  /* Analyse i4x4 */
+//#define X264_ANALYSE_I8x8       0x0002  /* Analyse i8x8 (requires 8x8 transform) */
 #define X264_ANALYSE_PSUB16x16  0x0010  /* Analyse p16x8, p8x16 and p8x8 */
 #define X264_ANALYSE_PSUB8x8    0x0020  /* Analyse p8x4, p4x8, p4x4 */
+//#define X264_ANALYSE_BSUB16x16  0x0100  /* Analyse b16x8, b8x16 and b8x8 */
 #define X264_DIRECT_PRED_NONE        0
 #define X264_DIRECT_PRED_SPATIAL     1
 #define X264_DIRECT_PRED_TEMPORAL    2
 #define X264_DIRECT_PRED_AUTO        3
 #define X264_ME_DIA                  0
-#define X264_ME_HEX                  1
-#define X264_ME_UMH                  2
-#define X264_ME_ESA                  3
-#define X264_ME_TESA                 4
+//#define X264_ME_HEX                  1
+//#define X264_ME_UMH                  2
+//#define X264_ME_ESA                  3
+//#define X264_ME_TESA                 4
 #define X264_CQM_FLAT                0
+//#define X264_CQM_JVT                 1
+//#define X264_CQM_CUSTOM              2
 #define X264_RC_CQP                  0
 #define X264_RC_CRF                  1
 #define X264_RC_ABR                  2
@@ -170,7 +174,15 @@ typedef struct
 #define X264_AQ_NONE                 0
 #define X264_AQ_VARIANCE             1
 #define X264_AQ_AUTOVARIANCE         2
+//#define X264_B_ADAPT_NONE            0
+//#define X264_B_ADAPT_FAST            1
+//#define X264_B_ADAPT_TRELLIS         2
 #define X264_WEIGHTP_NONE            0
+//#define X264_WEIGHTP_SIMPLE          1
+//#define X264_WEIGHTP_SMART           2
+//#define X264_B_PYRAMID_NONE          0
+//#define X264_B_PYRAMID_STRICT        1
+//#define X264_B_PYRAMID_NORMAL        2
 #define X264_KEYINT_MIN_AUTO         0
 #define X264_KEYINT_MAX_INFINITE     (1<<30)
 
@@ -192,7 +204,16 @@ static const char * const x264_nal_hrd_names[] = { "none", "vbr", "cbr", 0 };
 #define X264_CSP_I420           0x0001  /* yuv 4:2:0 planar */
 #define X264_CSP_YV12           0x0002  /* yvu 4:2:0 planar */
 #define X264_CSP_NV12           0x0003  /* yuv 4:2:0, with one y plane and one packed u+v */
-#define X264_CSP_MAX            0x0004  /* end of list */
+#define X264_CSP_I422           0x0004  /* yuv 4:2:2 planar */
+#define X264_CSP_YV16           0x0005  /* yvu 4:2:2 planar */
+#define X264_CSP_NV16           0x0006  /* yuv 4:2:2, with one y plane and one packed u+v */
+#define X264_CSP_I444           0x0007  /* yuv 4:4:4 planar */
+#define X264_CSP_YV24           0x0008  /* yvu 4:4:4 planar */
+#define X264_CSP_BGR            0x0009  /* packed bgr 24bits   */
+#define X264_CSP_BGRA           0x000a  /* packed bgr 32bits   */
+#define X264_CSP_RGB            0x000b  /* packed rgb 24bits   */
+#define X264_CSP_MAX            0x000c  /* end of list */
+#define X264_CSP_VFLIP          0x1000  /* the csp is vertically flipped */
 #define X264_CSP_HIGH_DEPTH     0x2000  /* the csp has a depth of 16 bits per pixel component */
 
 /* Slice type */
@@ -527,9 +548,7 @@ int     x264_param_apply_profile( x264_param_t *, const char *profile );
  *      Specifies the number of bits per pixel that x264 uses. This is also the
  *      bit depth that x264 encodes in. If this value is > 8, x264 will read
  *      two bytes of input data for each pixel sample, and expect the upper
- *      (16-x264_bit_depth) bits to be zero.
- *      Note: The flag X264_CSP_HIGH_DEPTH must be used to specify the
- *      colorspace depth as well. */
+ *      (16-x264_bit_depth) bits to be zero. */
 X264_API extern const int x264_bit_depth;
 
 /* x264_chroma_format:

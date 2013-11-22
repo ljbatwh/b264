@@ -34,24 +34,7 @@
 
 typedef void *hnd_t;
 
-static  uint64_t gcd( uint64_t a, uint64_t b )
-{
-    while( 1 )
-    {
-        int64_t c = a % b;
-        if( !c )
-            return b;
-        a = b;
-        b = c;
-    }
-}
-
-static  uint64_t lcm( uint64_t a, uint64_t b )
-{
-    return ( a / gcd( a, b ) ) * b;
-}
-
-static  char *get_filename_extension( char *filename )
+static inline char *get_filename_extension( char *filename )
 {
     char *ext = filename + strlen( filename );
     while( *ext != '.' && ext > filename )

@@ -508,14 +508,11 @@ static int x264_validate_parameters( x264_t *h, int b_open )
     h->param.analyse.i_luma_deadzone[1] = x264_clip3( h->param.analyse.i_luma_deadzone[1], 0, 32 );
 
     if( h->param.analyse.i_me_method < X264_ME_DIA ||
-        h->param.analyse.i_me_method > X264_ME_TESA )
-        h->param.analyse.i_me_method = X264_ME_HEX;
+        h->param.analyse.i_me_method > X264_ME_DIA )
+        h->param.analyse.i_me_method = X264_ME_DIA;
     h->param.analyse.i_me_range = x264_clip3( h->param.analyse.i_me_range, 4, 1024 );
-    if( h->param.analyse.i_me_range > 16 && h->param.analyse.i_me_method <= X264_ME_HEX )
+    if( h->param.analyse.i_me_range > 16 && h->param.analyse.i_me_method <= X264_ME_DIA )
         h->param.analyse.i_me_range = 16;
-    if( h->param.analyse.i_me_method == X264_ME_TESA &&
-        (h->mb.b_lossless || h->param.analyse.i_subpel_refine <= 1) )
-        h->param.analyse.i_me_method = X264_ME_ESA;
     h->param.analyse.inter &= X264_ANALYSE_PSUB16x16|X264_ANALYSE_PSUB8x8|X264_ANALYSE_I4x4;
     h->param.analyse.intra &= X264_ANALYSE_I4x4;
     if( !(h->param.analyse.inter & X264_ANALYSE_PSUB16x16) )
@@ -568,8 +565,6 @@ static int x264_validate_parameters( x264_t *h, int b_open )
         h->param.analyse.i_chroma_qp_offset -= h->param.analyse.f_psy_rd < 0.25 ? 1 : 2;
     h->param.analyse.i_chroma_qp_offset = x264_clip3(h->param.analyse.i_chroma_qp_offset, -12, 12);
     h->param.analyse.i_noise_reduction = x264_clip3( h->param.analyse.i_noise_reduction, 0, 1<<16 );
-    if( h->param.analyse.i_subpel_refine >= 10 )
-        h->param.analyse.i_subpel_refine = 9;
 
     {
         const x264_level_t *l = x264_levels;
@@ -649,10 +644,8 @@ static void mbcmp_init( x264_t *h )
     h->pixf.intra_mbcmp_x3_8x16c = satd ? h->pixf.intra_satd_x3_8x16c : h->pixf.intra_sad_x3_8x16c;
     h->pixf.intra_mbcmp_x3_8x8c  = satd ? h->pixf.intra_satd_x3_8x8c  : h->pixf.intra_sad_x3_8x8c;
     h->pixf.intra_mbcmp_x3_4x4 = satd ? h->pixf.intra_satd_x3_4x4 : h->pixf.intra_sad_x3_4x4;
-    satd &= h->param.analyse.i_me_method == X264_ME_TESA;
-    memcpy( h->pixf.fpelcmp, satd ? h->pixf.satd : h->pixf.sad, sizeof(h->pixf.fpelcmp) );
-    memcpy( h->pixf.fpelcmp_x3, satd ? h->pixf.satd_x3 : h->pixf.sad_x3, sizeof(h->pixf.fpelcmp_x3) );
-    memcpy( h->pixf.fpelcmp_x4, satd ? h->pixf.satd_x4 : h->pixf.sad_x4, sizeof(h->pixf.fpelcmp_x4) );
+    memcpy( h->pixf.fpelcmp,  h->pixf.sad, sizeof(h->pixf.fpelcmp) );
+    memcpy( h->pixf.fpelcmp_x4, h->pixf.sad_x4, sizeof(h->pixf.fpelcmp_x4) );
 }
 
 static void chroma_dsp_init( x264_t *h )
@@ -770,10 +763,9 @@ x264_t *x264_encoder_open( x264_param_t *param )
     CHECKED_MALLOCZERO( h->frames.unused[0], (3) * sizeof(x264_frame_t *) );
     /* Allocate room for max refs plus a few extra just in case. */
     CHECKED_MALLOCZERO( h->frames.unused[1], (1 + X264_REF_MAX + 4) * sizeof(x264_frame_t *) );
-    CHECKED_MALLOCZERO( h->frames.current, (1 + 3) * sizeof(x264_frame_t *) );
+
     h->i_ref = 0;
     h->i_cpb_delay = h->i_coded_fields = h->i_disp_fields = 0;
-    h->i_prev_duration = ((uint64_t)h->param.i_fps_den * h->sps->vui.i_time_scale) / ((uint64_t)h->param.i_fps_num * h->sps->vui.i_num_units_in_tick);
     h->i_disp_fields_last_frame = -1;
     x264_rdo_init();
 
@@ -838,6 +830,10 @@ x264_t *x264_encoder_open( x264_param_t *param )
 
     {
         int init_nal_count = h->param.i_slice_count + 3;
+
+        h->fdec = x264_frame_pop_unused( h, 1 );
+        if( !h->fdec )
+            goto fail;
 
         CHECKED_MALLOC( h->out.p_bitstream, h->out.i_bitstream );
         /* Start each thread with room for init_nal_count NAL units; it'll realloc later if needed. */
@@ -913,8 +909,7 @@ int x264_encoder_reconfig( x264_t *h, x264_param_t *param )
     COPY( analyse.intra );
     COPY( analyse.i_direct_mv_pred );
     /* Scratch buffer prevents me_range from being increased for esa/tesa */
-    if( h->param.analyse.i_me_method < X264_ME_ESA || param->analyse.i_me_range < h->param.analyse.i_me_range )
-        COPY( analyse.i_me_range );
+    COPY( analyse.i_me_range );
     COPY( analyse.i_noise_reduction );
     /* We can't switch out of subme=0 during encoding. */
     if( h->param.analyse.i_subpel_refine )
@@ -924,11 +919,6 @@ int x264_encoder_reconfig( x264_t *h, x264_param_t *param )
     COPY( analyse.b_fast_pskip );
     COPY( analyse.f_psy_rd );
     COPY( crop_rect );
-    // can only twiddle these if they were enabled to begin with:
-    if( h->param.analyse.i_me_method >= X264_ME_ESA || param->analyse.i_me_method < X264_ME_ESA )
-        COPY( analyse.i_me_method );
-    if( h->param.analyse.i_me_method >= X264_ME_ESA && !h->frames.b_have_sub8x8_esa )
-        h->param.analyse.inter &= ~X264_ANALYSE_PSUB8x8;
     COPY( i_slice_max_size );
     COPY( i_slice_max_mbs );
     COPY( i_slice_min_mbs );
@@ -1765,42 +1755,43 @@ int     x264_encoder_encode( x264_t *h,
     *pp_nal = NULL;
 
     /* ------------------- Setup new frame from picture -------------------- */
-    {
-        /* 1: Copy the picture to a frame and move it to a buffer */
-        x264_frame_t *fenc = x264_frame_pop_unused( h, 0 );
-        if( !fenc )
-            return -1;
 
-        if( x264_frame_copy_picture( h, fenc, pic_in ) < 0 )
-            return -1;
+    /* 1: Copy the picture to a frame and move it to a buffer */
+    x264_frame_t *fenc = x264_frame_pop_unused( h, 0 );
+    if( !fenc )
+        return -1;
 
-        if( h->param.i_width != 16 * h->mb.i_mb_width ||
+    if( x264_frame_copy_picture( h, fenc, pic_in ) < 0 )
+        return -1;
+
+    if( h->param.i_width != 16 * h->mb.i_mb_width ||
             h->param.i_height != 16 * h->mb.i_mb_height )
-            x264_frame_expand_border_mod16( h, fenc );
+        x264_frame_expand_border_mod16( h, fenc );
 
-        fenc->i_frame = h->frames.i_input++;
+    fenc->i_frame = h->frames.i_input++;
 
-        x264_adaptive_quant_frame( h, fenc );
+    x264_adaptive_quant_frame( h, fenc );
 
-        if( h->frames.b_have_lowres )
-            x264_frame_init_lowres( h, fenc );
+    if( h->frames.b_have_lowres )
+        x264_frame_init_lowres( h, fenc );
 
-        /* 2: Place the frame into the queue for its slice type decision */
-        x264_lookahead_put_frame( h, fenc );
+    /* 2: Place the frame into the queue for its slice type decision */
+    h->lookahead->current_frame = fenc;
 
-        assert( h->frames.i_input > h->frames.i_delay );
-    }
+    assert( h->frames.i_input > h->frames.i_delay );
+
 
     h->i_frame++;
     /* 3: The picture is analyzed in the lookahead */
-    if( !h->frames.current[0] )
-        x264_lookahead_get_frames( h );
+    if( !h->frames.current )
+        x264_lookahead_get_frame( h );
 
     //now we has the slice type
 
     /* ------------------- Get frame to be encoded ------------------------- */
     /* 4: get picture to encode */
-    h->fenc = x264_frame_shift( h->frames.current );
+    h->fenc = h->frames.current;
+    h->frames.current = 0;
 
     if( h->fenc->param )
     {
@@ -2445,7 +2436,9 @@ void    x264_encoder_close  ( x264_t *h )
     /* frames */
     x264_frame_delete_list( h->frames.unused[0] );
     x264_frame_delete_list( h->frames.unused[1] );
-    x264_frame_delete_list( h->frames.current );
+    if(h->frames.current){
+        x264_frame_delete( h->frames.current );
+    }
     x264_frame_delete_list( h->frames.blank_unused );
 
     for( int j = 0; j < h->i_ref; j++ )
@@ -2482,11 +2475,12 @@ void    x264_encoder_close  ( x264_t *h )
 int x264_encoder_delayed_frames( x264_t *h )
 {
     int delayed_frames = 0;
-    for( int i = 0; h->frames.current[i]; i++ )
-        delayed_frames++;
+
+    delayed_frames += h->frames.current?1:0;
 
     delayed_frames += h->lookahead->current_frame?1:0;
 
+    assert(delayed_frames == 0);
     return delayed_frames;
 }
 

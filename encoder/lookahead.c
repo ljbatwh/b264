@@ -68,30 +68,18 @@ void x264_lookahead_delete( x264_t *h )
         x264_frame_push_unused( h, h->lookahead->last_nonb );
 }
 
-void x264_lookahead_put_frame( x264_t *h, x264_frame_t *frame )
+void x264_lookahead_get_frame( x264_t *h )
 {
-    h->lookahead->current_frame = frame ;
-}
+    if( h->frames.current || !h->lookahead->current_frame )
+        return ;
 
-static void x264_lookahead_encoder_shift( x264_t *h )
-{
-    if( !h->lookahead->current_frame )
-        return;
+    x264_slicetype_decide( h );
 
-    x264_frame_push( h->frames.current, h->lookahead->current_frame );
-}
+    if( h->lookahead->last_nonb )
+        x264_frame_push_unused( h, h->lookahead->last_nonb );
+    h->lookahead->last_nonb = h->lookahead->current_frame;
+    h->lookahead->current_frame->i_reference_count++;
 
-void x264_lookahead_get_frames( x264_t *h )
-{
-    {   /* We are not running a lookahead thread, so perform all the slicetype decide on the fly */
-
-        if( h->frames.current[0] || !h->lookahead->current_frame )
-            return;
-
-        x264_slicetype_decide( h );
-
-        x264_lookahead_update_last_nonb( h, h->lookahead->current_frame );
-
-        x264_lookahead_encoder_shift( h );
-    }
+    h->frames.current = h->lookahead->current_frame;
+    h->lookahead->current_frame = 0;
 }

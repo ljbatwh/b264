@@ -133,9 +133,6 @@ struct x264_ratecontrol_t
     double slice_size_planned;
     predictor_t (*row_pred)[2];
     predictor_t row_preds[3][2];
-    predictor_t *pred_b_from_p; /* predict B-frame size from P-frame satd */
-    int bframes;                /* # consecutive B-frames before this P-frame */
-    int bframe_bits;            /* total cost of those frames */
 
     /* hrd stuff */
     int initial_cpb_removal_delay;
@@ -523,7 +520,6 @@ int x264_ratecontrol_new( x264_t *h )
     rc->last_qscale = qp2qscale( 26 );
     int num_preds = 1;
     CHECKED_MALLOC( rc->pred, 5 * sizeof(predictor_t) * num_preds );
-    CHECKED_MALLOC( rc->pred_b_from_p, sizeof(predictor_t) );
     for( int i = 0; i < 3; i++ )
     {
         rc->last_qscale_for[i] = qp2qscale( ABR_INIT_QP );
@@ -546,9 +542,6 @@ int x264_ratecontrol_new( x264_t *h )
             rc->row_preds[i][j].offset = 0.0;
         }
     }
-    *rc->pred_b_from_p = rc->pred[0];
-
-    h->rc = rc;
 
     return 0;
 fail:
@@ -572,7 +565,6 @@ void x264_ratecontrol_delete( x264_t *h )
     x264_ratecontrol_t *rc = h->rc;
 
     x264_free( rc->pred );
-    x264_free( rc->pred_b_from_p );
     x264_free( rc->entry );
     x264_free( rc );
 }
@@ -1091,20 +1083,11 @@ static double clip_qscale( x264_t *h, int pict_type, double q )
          * overflow before the next P-frame. */
         if( h->sh.i_type == SLICE_TYPE_P && !rcc->single_frame_vbv )
         {
-            int nb = rcc->bframes;
             double pbbits = bits;
-            double bbits = predict_size( rcc->pred_b_from_p, q * h->param.rc.f_pb_factor, rcc->last_satd );
             double space;
-            double bframe_cpb_duration = 0;
             double minigop_cpb_duration;
-            for( int i = 0; i < nb; i++ )
-                bframe_cpb_duration += h->fenc->f_planned_cpb_duration[1+i];
 
-            if( bbits * nb > bframe_cpb_duration * rcc->vbv_max_rate )
-                nb = 0;
-            pbbits += nb * bbits;
-
-            minigop_cpb_duration = bframe_cpb_duration + h->fenc->f_planned_cpb_duration[0];
+            minigop_cpb_duration = h->fenc->f_planned_cpb_duration;
             space = rcc->buffer_fill + minigop_cpb_duration*rcc->vbv_max_rate - rcc->buffer_size;
             if( pbbits < space )
             {

@@ -172,16 +172,15 @@ int x264_macroblock_thread_allocate( x264_t *h )
             h->intra_border_backup[i][j] += 16;
         }
 
+    CHECKED_MALLOC( h->deblock_strength[0], sizeof(**h->deblock_strength) * h->mb.i_mb_width );
+    h->deblock_strength[1] = h->deblock_strength[0];
 
     /* Allocate scratch buffer */
     int scratch_size = 0;
     {
         int buf_hpel = (h->fdec->i_width[0]+48+32) * sizeof(int16_t);
         int buf_ssim = h->param.analyse.b_ssim * 8 * (h->param.i_width/4+3) * sizeof(int);
-        int me_range = X264_MIN(h->param.analyse.i_me_range, h->param.analyse.i_mv_range);
-        int buf_tesa = (h->param.analyse.i_me_method >= X264_ME_ESA) *
-            ((me_range*2+24) * sizeof(int16_t) + (me_range+4) * (me_range+1) * 4 * sizeof(mvsad_t));
-        scratch_size = X264_MAX3( buf_hpel, buf_ssim, buf_tesa );
+        scratch_size = X264_MAX( buf_hpel, buf_ssim );
     }
     scratch_size = scratch_size;
     if( scratch_size )
@@ -189,7 +188,7 @@ int x264_macroblock_thread_allocate( x264_t *h )
     else
         h->scratch_buffer = NULL;
 
-    int buf_lookahead_threads = (h->mb.i_mb_height) * sizeof(int) * 2;
+    int buf_lookahead_threads = (h->mb.i_mb_height + (4 + 32)) * sizeof(int) * 2;
     CHECKED_MALLOC( h->scratch_buffer2, buf_lookahead_threads );
 
     return 0;
@@ -247,8 +246,7 @@ void x264_macroblock_thread_init( x264_t *h )
 {
     h->mb.i_me_method = h->param.analyse.i_me_method;
     h->mb.i_subpel_refine = h->param.analyse.i_subpel_refine;
-    h->mb.b_chroma_me = h->param.analyse.b_chroma_me &&
-                        ((h->sh.i_type == SLICE_TYPE_P && h->mb.i_subpel_refine >= 5) );
+    h->mb.b_chroma_me = 0;
     h->mb.b_dct_decimate = (h->param.analyse.b_dct_decimate && h->sh.i_type != SLICE_TYPE_I);
     h->mb.i_mb_prev_xy = -1;
 
@@ -737,7 +735,7 @@ void x264_macroblock_deblock_strength( x264_t *h )
     }
 
     h->loopf.deblock_strength( h->mb.cache.non_zero_count, h->mb.cache.ref, h->mb.cache.mv,
-                               bs, 4 );
+                               *bs, 4 );
 }
 
 static void  x264_macroblock_store_pic( x264_t *h, int mb_x, int mb_y, int i, int b_chroma )

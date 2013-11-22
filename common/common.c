@@ -110,11 +110,11 @@ void x264_param_default( x264_param_t *param )
     param->analyse.inter = X264_ANALYSE_I4x4
                          | X264_ANALYSE_PSUB16x16 ;
     param->analyse.i_direct_mv_pred = X264_DIRECT_PRED_SPATIAL;
-    param->analyse.i_me_method = X264_ME_HEX;
+    param->analyse.i_me_method = X264_ME_DIA;
     param->analyse.f_psy_rd = 1.0;
     param->analyse.b_psy = 1;
     param->analyse.i_me_range = 16;
-    param->analyse.i_subpel_refine = 7;
+    param->analyse.i_subpel_refine = 1;
     param->analyse.b_chroma_me = 1;
     param->analyse.i_mv_range = -1; // set from level_idc
     param->analyse.i_chroma_qp_offset = 0;

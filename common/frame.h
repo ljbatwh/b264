@@ -110,11 +110,11 @@ typedef struct x264_frame
     /* for adaptive B-frame decision.
      * contains the SATD cost of the lowres frame encoded in various modes
      * FIXME: how big an array do we need? */
-    int     i_cost_est[X264_BFRAME_MAX+2];
-    int     i_cost_est_aq[X264_BFRAME_MAX+2];
+    int     i_cost_est[2]; //for intra and inter
+    int     i_cost_est_aq[2];
     int     i_satd; // the i_cost_est of the selected frametype
-    int     i_intra_mbs[X264_BFRAME_MAX+2];
-    int     *i_row_satds[X264_BFRAME_MAX+2]; //every elements is a array, length is mbs
+    int     i_intra_mbs[2];
+    int     *i_row_satds[2]; //every elements is a array, length is mbs
     int     *i_row_satd;
     int     *i_row_bits;
     float   *f_row_qp;
@@ -133,11 +133,7 @@ typedef struct x264_frame
     x264_hrd_t hrd_timing;
 
     /* vbv */
-    uint8_t i_planned_type[1];
-    int i_planned_satd[1];
-    double f_planned_cpb_duration[1];
-    int64_t i_coded_fields_lookahead;
-    int64_t i_cpb_delay_lookahead;
+    double f_planned_cpb_duration;
 
     /* threading */
     int     i_lines_completed; /* in pixels */

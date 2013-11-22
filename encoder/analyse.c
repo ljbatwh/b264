@@ -225,17 +225,7 @@ int x264_analyse_init_costs( x264_t *h, float *logs, int qp )
     for( int i = 0; i < 3; i++ )
         for( int j = 0; j < 33; j++ )
             x264_cost_ref[qp][i][j] = X264_MIN( i ? lambda * bs_size_te( i, j ) : 0, (1<<16)-1 );
-    //me_method is X264_ME_ESA or X264_ME_TESA need four pixel cost
-    if( h->param.analyse.i_me_method >= X264_ME_ESA && !h->cost_mv_fpel[qp][0] )
-    {
-        for( int j = 0; j < 4; j++ )
-        {
-            CHECKED_MALLOC( h->cost_mv_fpel[qp][j], (4*2048 + 1) * sizeof(uint16_t) );
-            h->cost_mv_fpel[qp][j] += 2*2048;
-            for( int i = -2*2048; i < 2*2048; i++ )
-                h->cost_mv_fpel[qp][j][i] = h->cost_mv[qp][i*4+j];
-        }
-    }
+
     uint16_t *cost_i4x4_mode = (uint16_t*)ALIGN((intptr_t)x264_cost_i4x4_mode,64) + qp*32;
     for( int i = 0; i < 17; i++ )
         cost_i4x4_mode[i] = 3*lambda*(i!=8);
@@ -379,15 +369,6 @@ static void x264_mb_analyse_init( x264_t *h, x264_mb_analysis_t *a, int qp )
         if( a->b_early_terminate && h->mb.i_mb_xy - h->sh.i_first_mb > 4 )
         {
             /* Always run in fast-intra mode for subme < 3 */
-            if( h->mb.i_subpel_refine > 2 &&
-              ( IS_INTRA( h->mb.i_mb_type_left[0] ) ||
-                IS_INTRA( h->mb.i_mb_type_top ) ||
-                IS_INTRA( h->mb.i_mb_type_topleft ) ||
-                IS_INTRA( h->mb.i_mb_type_topright ) ||
-                (h->sh.i_type == SLICE_TYPE_P && IS_INTRA( h->fref[0]->mb_type[h->mb.i_mb_xy] )) ||
-                (h->mb.i_mb_xy - h->sh.i_first_mb < 3*(h->stat.frame.i_mb_count[I_4x4] + h->stat.frame.i_mb_count[I_8x8] + h->stat.frame.i_mb_count[I_16x16])) ) )
-            { /* intra is likely */ }
-            else
             {
                 a->b_fast_intra = 1;
             }
@@ -873,6 +854,7 @@ static void x264_intra_rd_refine( x264_t *h, x264_mb_analysis_t *a )
 
 #define LOAD_HPELS(m, src,  ref, xoff, yoff) \
 { \
+    (m)->p_fref_w = (m)->p_fref[0] = &(src)[0][(xoff)+(yoff)*(m)->i_stride[0]]; \
     (m)->p_fref[1] = &(src)[1][(xoff)+(yoff)*(m)->i_stride[0]]; \
     (m)->p_fref[2] = &(src)[2][(xoff)+(yoff)*(m)->i_stride[0]]; \
     (m)->p_fref[3] = &(src)[3][(xoff)+(yoff)*(m)->i_stride[0]]; \
@@ -1565,8 +1547,6 @@ intra_analysis:
                 if( skip_invalid )
                     // FIXME don't need to check this if the reference frame is done
                     {}
-                else if( h->param.analyse.i_subpel_refine >= 3 )
-                    analysis.b_try_skip = 1;
                 else if( h->mb.i_mb_type_left[0] == P_SKIP ||
                          h->mb.i_mb_type_top == P_SKIP ||
                          h->mb.i_mb_type_topleft == P_SKIP ||
